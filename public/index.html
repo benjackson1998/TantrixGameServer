@@ -276,9 +276,18 @@ body{font-family:system-ui,sans-serif;}
     <div style="font-size:13px;color:#888;">Share this code with friends:</div>
     <div id="room-code-display">----</div>
     <div id="waiting-players"></div>
-    <div style="font-size:12px;color:#888;margin-top:4px;">Pick your colour:</div>
+    <div style="font-size:12px;color:#888;margin-top:6px;">Pick your colour:</div>
     <div id="waiting-color-opts" style="display:flex;gap:10px;justify-content:center;align-items:center;margin:4px 0;min-height:44px;"></div>
     <div id="waiting-colour-msg" style="font-size:11px;color:#cc8833;min-height:14px;text-align:center;"></div>
+    <div id="waiting-scheme-row" style="display:none;flex-direction:column;gap:6px;width:100%;max-width:300px;">
+      <div style="font-size:12px;color:#888;">Colour scheme (applies to all players):</div>
+      <select id="waiting-scheme-select" style="appearance:none;-webkit-appearance:none;background:#1a1a1a;border:1px solid #333;color:#eee;font-size:13px;padding:8px 32px 8px 12px;border-radius:8px;cursor:pointer;width:100%;background-image:url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23666' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E&quot;);background-repeat:no-repeat;background-position:right 10px center;">
+        <option value="classic">Classic — Red · Yellow · Green · Blue</option>
+        <option value="cbfriendly">Colour-blind friendly — Blue · Orange · Teal · Magenta</option>
+        <option value="vivid">Vivid — Cyan · Gold · Purple · Lime</option>
+      </select>
+      <div id="waiting-scheme-swatches" style="display:flex;gap:6px;align-items:center;padding:8px 10px;background:#1a1a1a;border-radius:8px;border:1px solid #2a2a2a;"></div>
+    </div>
     <button id="btn-start-online">Start Game →</button>
     <button id="btn-cancel-room" style="background:none;border:1px solid #444;color:#888;font-size:13px;padding:8px 20px;border-radius:6px;cursor:pointer;margin-top:4px;">✕ Cancel &amp; go home</button>
   </div>
@@ -312,7 +321,7 @@ body{font-family:system-ui,sans-serif;}
 
   </div>
   <a href="https://www.tantrix.com/english/TantrixGameRules.html" target="_blank" rel="noopener" style="font-size:15px;color:#333;text-decoration:none;margin-top:4px;font-weight:500;">📖 Official Tantrix Rules</a>
-  <span style="font-size:11px;color:#aaa;margin-top:2px;">v1.2.3</span>
+  <span style="font-size:11px;color:#aaa;margin-top:2px;">v1.2.4</span>
 </div>
 
 <div id="setup">
@@ -598,7 +607,15 @@ function renderSwatches(){
 document.getElementById('scheme-select').addEventListener('change',e=>{
   activeScheme=e.target.value;
   renderSwatches();
-  buildSetup(); // rebuild colour pickers with new colours
+  buildSetup();
+});
+
+// Waiting room scheme picker (host only)
+document.getElementById('waiting-scheme-select').addEventListener('change',e=>{
+  activeScheme=e.target.value;
+  renderWaitingSwatches();
+  buildWaitingColours(); // rebuild colour dots with new scheme colours
+  // Tell server the scheme so it gets included in gameState on start
 });
 
 renderSwatches(); // initial render
@@ -1130,22 +1147,46 @@ function renderPanels(){
 }
 
 document.getElementById('bn').addEventListener('click',()=>{
-  document.getElementById('game').style.display='none';
-  document.getElementById('setup').style.display='flex';buildSetup();
+  if(MP.enabled){
+    // In MP mode, new game goes to lobby
+    if(!confirm('Exit to home screen? The current game will be lost.'))return;
+    if(MP.socket){MP.socket.disconnect();MP.socket=null;}
+    MP.enabled=false;MP.roomCode=null;MP.myIndex=-1;MP.isHost=false;MP.players=[];MP.lobbyColour=null;
+    G.phase='idle';
+    document.getElementById('game').style.display='none';
+    document.getElementById('gameover-overlay').classList.remove('visible');
+    document.getElementById('online-panel').style.display='none';
+    document.getElementById('waiting-panel').style.display='none';
+    document.getElementById('lobby-msg').textContent='';
+    document.getElementById('lobby').style.display='flex';
+  } else {
+    document.getElementById('game').style.display='none';
+    document.getElementById('lobby').style.display='flex';
+  }
 });
 
 document.getElementById('bexit').addEventListener('click',()=>{
   if(!confirm('Exit to home screen? The current game will be lost.'))return;
   // Reset MP if online
   if(MP.enabled&&MP.socket){MP.socket.disconnect();MP.socket=null;}
-  MP.enabled=false;MP.roomCode=null;MP.myIndex=-1;MP.isHost=false;MP.players=[];
-  G.phase='idle';
+  MP.enabled=false;MP.roomCode=null;MP.myIndex=-1;MP.isHost=false;MP.players=[];MP.lobbyColour=null;
+  G.phase='idle';G.board=new Map();G.bag=[];G.players=[];G.log=[];
   document.getElementById('game').style.display='none';
   document.getElementById('gameover-overlay').classList.remove('visible');
+  document.getElementById('endscreen').style.display='none';
+  // Reset online panel state
+  document.getElementById('online-panel').style.display='none';
+  document.getElementById('waiting-panel').style.display='none';
+  document.getElementById('lobby-msg').textContent='';
   document.getElementById('lobby').style.display='flex';
 });
 document.getElementById('btn-home').addEventListener('click',()=>{
+  if(MP.enabled&&MP.socket){MP.socket.disconnect();MP.socket=null;}
+  MP.enabled=false;MP.roomCode=null;MP.myIndex=-1;MP.isHost=false;MP.players=[];MP.lobbyColour=null;
   document.getElementById('endscreen').style.display='none';
+  document.getElementById('online-panel').style.display='none';
+  document.getElementById('waiting-panel').style.display='none';
+  document.getElementById('lobby-msg').textContent='';
   document.getElementById('lobby').style.display='flex';
 });
 
@@ -1285,9 +1326,26 @@ function showWaiting(){
   document.getElementById('online-panel').style.display='none';
   document.getElementById('waiting-panel').style.display='flex';
   document.getElementById('room-code-display').textContent=MP.roomCode;
-  document.getElementById('btn-start-online').style.display='none'; // hidden until colour chosen
+  document.getElementById('btn-start-online').style.display='none';
+  // Show scheme picker only for host
+  const schemeRow=document.getElementById('waiting-scheme-row');
+  if(schemeRow)schemeRow.style.display=MP.isHost?'flex':'none';
   renderWaiting();
   buildWaitingColours();
+  renderWaitingSwatches();
+}
+
+function renderWaitingSwatches(){
+  const cont=document.getElementById('waiting-scheme-swatches');
+  if(!cont)return;
+  cont.innerHTML='';
+  const scheme=SCHEMES[activeScheme];
+  Object.entries(scheme.cols).forEach(([k,{hex,label}])=>{
+    const item=document.createElement('div');item.style.cssText='display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;';
+    const dot=document.createElement('div');dot.style.cssText=`width:28px;height:28px;border-radius:50%;background:${hex};border:2px solid rgba(255,255,255,0.15);`;
+    const lbl=document.createElement('div');lbl.style.cssText='font-size:10px;color:#fff;text-align:center;';lbl.textContent=label;
+    item.append(dot,lbl);cont.appendChild(item);
+  });
 }
 
 function buildWaitingColours(){
