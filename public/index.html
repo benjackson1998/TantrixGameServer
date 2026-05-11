@@ -50,6 +50,26 @@ body{font-family:system-ui,sans-serif;}
 #msg.good{color:#3db87a;}#msg.bad{color:#e05555;}#msg.info{color:#5599dd;}#msg.warn{color:#cc8833;}
 #phase-ind{font-size:clamp(12px,2.2vw,15px);padding:4px 12px;border-radius:10px;font-weight:700;flex-shrink:0;}
 .pf{background:#3d2800;color:#cc8833;border:1px solid #553300;}
+
+/* ── Online Leaderboard ── */
+#leaderboard-btn{font-size:clamp(12px,2.2vw,15px);padding:clamp(7px,1.5vw,10px) clamp(12px,2.5vw,18px);border-radius:6px;border:1px solid #444;background:#252525;color:#ddd;cursor:pointer;touch-action:manipulation;}
+#leaderboard-btn:hover{background:#333;color:#fff;}
+#lb-panel{display:none;position:absolute;right:0;bottom:48px;width:min(340px,92vw);background:#1a1a1a;border:1px solid #333;border-radius:10px 0 0 10px;z-index:60;flex-direction:column;overflow:hidden;box-shadow:-4px 0 20px rgba(0,0,0,0.5);}
+#lb-panel.open{display:flex;}
+#lb-hdr{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid #2a2a2a;flex-shrink:0;background:#222;}
+#lb-hdr span{font-size:12px;font-weight:600;color:#bbb;}
+#lb-close{background:none;border:none;color:#aaa;font-size:18px;cursor:pointer;padding:4px 8px;line-height:1;border-radius:4px;touch-action:manipulation;}
+#lb-close:hover{color:#eee;}
+#lb-body{overflow-y:auto;flex:1;max-height:60vh;padding:4px 0;}
+.lb-row{display:flex;align-items:center;gap:8px;padding:6px 12px;border-bottom:1px solid #1e1e1e;font-size:11px;}
+.lb-row:last-child{border-bottom:none;}
+.lb-medal{font-size:14px;min-width:22px;text-align:center;}
+.lb-rank{font-size:11px;font-weight:700;color:#555;min-width:22px;text-align:center;}
+.lb-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.lb-name{flex:1;color:#ccc;font-weight:600;}
+.lb-score{font-weight:700;color:#3db87a;min-width:44px;text-align:right;}
+.lb-date{font-size:10px;color:#555;min-width:56px;text-align:right;}
+#lb-empty{padding:20px;text-align:center;font-size:12px;color:#555;}
 .pfr{background:#002a1a;color:#3db87a;border:1px solid #004422;}
 .pi{background:#222;color:#555;border:1px solid #333;}
 
@@ -138,7 +158,7 @@ body{font-family:system-ui,sans-serif;}
 #bdone{display:none;}
 
 /* ── AI Setup screen ── */
-#ai-setup{display:none;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:clamp(10px,2vh,20px);padding:clamp(16px,3vh,28px);overflow-y:auto;background:white;}
+#ai-setup{display:none;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:clamp(10px,2vh,20px);padding:clamp(16px,3vh,28px);overflow-y:auto;background:#f8f8f8;}
 #ai-setup h2{font-size:clamp(22px,5vw,32px);color:#111;font-weight:700;letter-spacing:.05em;}
 #ai-setup .sub{font-size:clamp(13px,2.5vw,16px);color:#666;}
 .ai-cnt-btn{width:clamp(44px,9vw,56px);height:clamp(44px,9vw,56px);border-radius:50%;border:2px solid #ccc;background:#f0f0f0;color:#555;font-size:clamp(16px,3vw,20px);font-weight:700;cursor:pointer;}
@@ -333,7 +353,7 @@ body{font-family:system-ui,sans-serif;}
 
   </div>
   <a href="https://www.tantrix.com/english/TantrixGameRules.html" target="_blank" rel="noopener" style="font-size:15px;color:#333;text-decoration:none;margin-top:4px;font-weight:500;">📖 Official Tantrix Rules</a>
-  <span style="font-size:11px;color:#aaa;margin-top:2px;">v1.3.1</span>
+  <span style="font-size:11px;color:#aaa;margin-top:2px;">v1.4</span>
 </div>
 
 <div id="setup">
@@ -404,7 +424,7 @@ body{font-family:system-ui,sans-serif;}
 </div>
 
 <div id="game">
-  <div id="hdr"><h2>⬡ TANTRIX</h2><span id="hint">Select tile · tap twice on board to rotate · drag to pan</span><a href="https://www.tantrix.com/english/TantrixGameRules.html" target="_blank" rel="noopener" style="font-size:14px;color:#bbb;text-decoration:none;margin-left:10px;white-space:nowrap;font-weight:500;">📖 Rules</a></div>
+  <div id="hdr"><h2>⬡ TANTRIX</h2><span id="game-mode-label" style="font-size:11px;padding:2px 8px;border-radius:10px;background:#252525;color:#888;font-weight:500;flex-shrink:0;white-space:nowrap;"></span><span id="hint">Select tile · tap twice on board to rotate · drag to pan</span><a href="https://www.tantrix.com/english/TantrixGameRules.html" target="_blank" rel="noopener" style="font-size:14px;color:#bbb;text-decoration:none;margin-left:10px;white-space:nowrap;font-weight:500;">📖 Rules</a></div>
   <div id="sbar"><span id="msg" class="info">…</span><span id="phase-ind" class="pi"></span></div>
   <!-- Player goes first announcement -->
 <div id="first-announcement">
@@ -436,6 +456,7 @@ body{font-family:system-ui,sans-serif;}
     <button id="brot">↻ Rotate</button>
     <button id="log-btn">📋 Log</button>
     <button id="help-btn">❓ Help</button>
+    <button id="leaderboard-btn" style="display:none;">🏆 Top 10</button>
     <div id="bag-disp">Bag: <span id="bag-count">—</span></div>
   </div>
 
@@ -470,6 +491,11 @@ body{font-family:system-ui,sans-serif;}
       <div class="tip"><span class="tip-icon">📏</span><span>Longest connected line of your colour = 1pt per tile.</span></div>
       <div class="tip"><span class="tip-icon">⟳</span><span>A closed <strong>loop</strong> scores <strong>double</strong> — 2pts per tile in the loop.</span></div>
     </div>
+  </div>
+
+  <div id="lb-panel">
+    <div id="lb-hdr"><span>🏆 All-Time Top 10</span><button id="lb-close" onclick="document.getElementById('lb-panel').classList.remove('open')">✕</button></div>
+    <div id="lb-body"><div id="lb-empty">No scores yet — be the first!</div></div>
   </div>
 </div>
 
@@ -695,8 +721,11 @@ document.getElementById('start-btn').addEventListener('click',()=>{
 const G={board:new Map(),bag:[],players:[],cur:0,phase:'idle',turnPhase:'free',sel:null,selP:-1,rot:0,_lastHoverQ:null,_lastHoverR:null,log:[]};
 function startGame(playerDefs){
   const bag=TILES.map(t=>({...t}));shuffle(bag);
-  G.bag=bag;G.board=new Map();G.players=playerDefs.map(pd=>({col:pd.col,hand:[]}));
+  G.bag=bag;G.board=new Map();
+  G.players=playerDefs.map(pd=>({col:pd.col,hand:[],isAI:pd.isAI||false}));
   G.phase='play';G.sel=null;G.selP=-1;G.rot=0;G.log=[];
+  updateModeLabel();
+  updateLeaderboardBtn();
   for(let p=0;p<G.players.length;p++)for(let i=0;i<6;i++)drawT(p);
   G.cur=0|Math.random()*G.players.length;
   const fa=document.getElementById('first-announcement');
@@ -705,6 +734,12 @@ function startGame(playerDefs){
   startTurn();setTimeout(resizeBoard,50);
 }
 function drawT(p){if(G.bag.length)G.players[p].hand.push(G.bag.pop());}
+function updateModeLabel(){
+  const el=document.getElementById('game-mode-label');
+  if(!el)return;
+  const labels={'local':'🖥 Local','ai-easy':'🤖 Easy','ai-medium':'🤖 Medium','ai-hard':'🤖 Hard','online':'🌐 Online'};
+  el.textContent=labels[G.mode]||'';
+}
 function rotateTile(t,n){const edges=rotateEdges(t.edges,n);return{...t,edges,curves:edgesToCurves(edges)};}
 function occCount(q,r,aq,ar){return nbrs(q,r).filter(({q:nq,r:nr})=>G.board.has(hk(nq,nr))||(aq!==undefined&&nq===aq&&nr===ar)).length;}
 function isForced(q,r){return!G.board.has(hk(q,r))&&occCount(q,r)>=3;}
@@ -840,7 +875,7 @@ function canFillAnyForced(){
   for(const{q,r}of forced)for(const t of hand)for(let rot=0;rot<6;rot++)if(canPlace(q,r,rotateTile(t,rot)))return true;
   return false;
 }
-function startTurn(){
+function _startTurnCore(){
   G.sel=null;G.selP=-1;G.rot=0;
   // Safety net: catch game over if somehow missed in endTurn
   if(G.bag.length===0&&G.players.every(p=>p.hand.length===0)){endGame();return;}
@@ -962,6 +997,7 @@ function buildResultsList(){
     list.appendChild(row);
   });
 
+  submitLeaderboardScore();
   // Switch to end screen (called from modal button)
   document.getElementById('game').style.display='none';
   document.getElementById('endscreen').style.display='flex';
@@ -1266,6 +1302,56 @@ document.getElementById('brot').addEventListener('click',()=>{
   if(G.sel!==null&&G.selP===G.cur){G.rot=(G.rot+1)%6;render();}
   else setMsg('Select a tile first to rotate','bad');
 });
+
+// ── Leaderboard ────────────────────────────────────────────────────────
+function updateLeaderboardBtn(){
+  const btn=document.getElementById('leaderboard-btn');
+  if(btn)btn.style.display=G.mode==='online'?'inline-block':'none';
+}
+
+document.getElementById('leaderboard-btn').addEventListener('click',()=>{
+  document.getElementById('log-panel').classList.remove('open');
+  document.getElementById('help-panel').classList.remove('open');
+  const panel=document.getElementById('lb-panel');
+  if(panel.classList.toggle('open')&&MP.socket)MP.socket.emit('getLeaderboard');
+});
+
+document.addEventListener('click',(e)=>{
+  const lb=document.getElementById('lb-panel');
+  if(lb&&lb.classList.contains('open')&&!lb.contains(e.target)&&e.target.id!=='leaderboard-btn')
+    lb.classList.remove('open');
+});
+
+function renderLeaderboard(entries){
+  const body=document.getElementById('lb-body');
+  body.innerHTML='';
+  if(!entries||entries.length===0){body.innerHTML='<div id="lb-empty">No scores yet — be the first!</div>';return;}
+  const medals=['🥇','🥈','🥉'];
+  entries.forEach((e,i)=>{
+    const row=document.createElement('div');row.className='lb-row';
+    const medal=document.createElement('div');
+    medal.className=i<3?'lb-medal':'lb-rank';
+    medal.textContent=i<3?medals[i]:`${i+1}.`;
+    const dot=document.createElement('div');dot.className='lb-dot';dot.style.background=CLR[e.colour]||'#888';
+    const name=document.createElement('div');name.className='lb-name';name.textContent=e.playerName;
+    const score=document.createElement('div');score.className='lb-score';score.textContent=e.score+' pts';
+    const date=document.createElement('div');date.className='lb-date';
+    date.textContent=new Date(e.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'});
+    row.append(medal,dot,name,score,date);body.appendChild(row);
+  });
+}
+
+function submitLeaderboardScore(){
+  if(!MP.enabled||!MP.socket||G.mode!=='online')return;
+  const myPlayer=G.players[MP.myIndex];if(!myPlayer)return;
+  const bs=bestScore(myPlayer.col);
+  MP.socket.emit('submitScore',{
+    playerName:MP.players[MP.myIndex]?.name||`P${MP.myIndex+1}`,
+    colour:myPlayer.col,score:bs.score,
+    date:new Date().toISOString()
+  });
+}
+
 window.addEventListener('resize',()=>{resizeBoard();render();});
 
 // ══════════════════════════════════════════════════════════════════════
@@ -1370,15 +1456,7 @@ document.getElementById('ai-start-btn').addEventListener('click', () => {
   setTimeout(resizeBoard, 50);
 });
 
-// ── Mark AI players in startGame ──────────────────────────────────────
-const _origStartGame = startGame;
-function startGame(playerDefs) {
-  _origStartGame(playerDefs);
-  // Tag AI players
-  playerDefs.forEach((pd, i) => {
-    if (pd.isAI) G.players[i].isAI = true;
-  });
-}
+// AI tagging now done directly in startGame
 
 // ── AI turn trigger — called from startTurn ────────────────────────────
 function maybeDoAiTurn() {
@@ -1386,7 +1464,7 @@ function maybeDoAiTurn() {
   if (G.phase !== 'play') return;
   if (!G.players[G.cur].isAI) return;
   // Delay so the human can see the board state before AI moves
-  setTimeout(doAiMove, 700);
+  setTimeout(doAiMove, 1200);
 }
 
 // ── Core AI move logic ─────────────────────────────────────────────────
@@ -1429,13 +1507,13 @@ function doAiMove() {
       G.turnPhase = 'forced2';
       setMsg(`Computer filling forced spaces…`, 'warn');
       updateUI(); render();
-      setTimeout(doAiMove, 600);
+      setTimeout(doAiMove, 950);
     } else {
       if (G.turnPhase === 'forced1') {
         G.turnPhase = 'free';
         setMsg(`Computer making free move…`, 'info');
         updateUI(); render();
-        setTimeout(doAiMove, 600);
+        setTimeout(doAiMove, 950);
       } else {
         endTurn();
       }
@@ -1446,7 +1524,7 @@ function doAiMove() {
       G.turnPhase = 'forced2';
       setMsg(`Computer filling forced spaces…`, 'warn');
       updateUI(); render();
-      setTimeout(doAiMove, 600);
+      setTimeout(doAiMove, 950);
     } else {
       endTurn();
     }
@@ -1541,26 +1619,17 @@ function getAiMovesForColour(col) {
 }
 
 // ── Hook into startTurn to trigger AI ─────────────────────────────────
-const _origStartTurn = startTurn;
 function startTurn() {
-  _origStartTurn();
-  // After startTurn sets up the turn, trigger AI if it's an AI player
+  _startTurnCore();
+  // Trigger AI if it's an AI player's turn
   if (AI.enabled && G.phase === 'play' && G.players[G.cur]?.isAI) {
     setMsg('Computer is thinking…', 'info');
     updateUI(); render();
-    setTimeout(maybeDoAiTurn, 500);
+    setTimeout(maybeDoAiTurn, 1200);
   }
 }
 
-// ── Disable board/hand interaction when it's AI's turn ─────────────────
-const _origDoClick_AI = doClick;
-function doClick(px, py) {
-  if (AI.enabled && G.players[G.cur]?.isAI) {
-    setMsg("Computer is thinking…", 'info');
-    return;
-  }
-  _origDoClick_AI(px, py);
-}
+// AI turn blocking is handled inside the MP doClick wrapper below
 
 
 
@@ -1667,6 +1736,7 @@ function initSocket(){
   });
   MP.socket.on('gameStarted',({gameState,players})=>{
     MP.players=players;MP.enabled=true;
+    G.mode='online';
     document.getElementById('lobby').style.display='none';
     document.getElementById('game').style.display='flex';
     applyRemoteState(gameState);
@@ -1674,6 +1744,7 @@ function initSocket(){
   });
   MP.socket.on('gameUpdated',(gs)=>applyRemoteState(gs));
   MP.socket.on('errorMessage',(m)=>lobbyMsg(m));
+  MP.socket.on('leaderboard',(entries)=>renderLeaderboard(entries));
 }
 
 function showWaiting(){
@@ -1825,7 +1896,7 @@ function applyRemoteState(gs){
       else setMsg(`Waiting for P${G.cur+1} ${CN[G.players[G.cur].col]} to play…`,'info');
     }
   }
-  updateUI();render();
+  updateModeLabel();updateUI();render();
 }
 
 // ── Emit state after successful moves ────────────────────────────────────
@@ -1836,6 +1907,9 @@ function emitState(){
 
 // ── doClick: wraps core with MP guard ────────────────────────────────────
 function doClick(px,py){
+  if(AI.enabled&&G.players[G.cur]?.isAI){
+    setMsg('Computer is thinking…','info');return;
+  }
   if(MP.enabled&&MP.myIndex!==G.cur){
     setMsg(`Waiting for P${G.cur+1} (${CN[G.players[G.cur].col]})…`,'info');return;
   }
