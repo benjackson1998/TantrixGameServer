@@ -263,8 +263,6 @@ body{font-family:system-ui,sans-serif;}
   <div id="online-panel">
     <div><label style="font-size:12px;color:#888;display:block;margin-bottom:4px;">Your name</label>
     <input id="inp-name" placeholder="Enter your name" maxlength="16"/></div>
-    <div><label style="font-size:12px;color:#888;display:block;margin-bottom:4px;">Your colour</label>
-    <div style="display:flex;gap:8px;justify-content:center;" id="lobby-color-opts"></div></div>
     <div class="online-btns">
       <button id="btn-create-room">➕ Create Room</button>
     </div>
@@ -272,12 +270,15 @@ body{font-family:system-ui,sans-serif;}
       <input id="inp-room-code" placeholder="Room code" maxlength="4" style="flex:1;text-transform:uppercase;letter-spacing:.15em;text-align:center;"/>
       <button id="btn-confirm-join" style="padding:10px 14px;border-radius:6px;border:1px solid #2a6040;background:#1a3d28;color:#3db87a;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">Join →</button>
     </div>
+    <button onclick="document.getElementById('online-panel').style.display='none';document.getElementById('lobby-msg').textContent='';" style="background:none;border:none;color:#666;font-size:12px;cursor:pointer;margin-top:4px;">← Back</button>
   </div>
   <div id="waiting-panel">
     <div style="font-size:13px;color:#888;">Share this code with friends:</div>
     <div id="room-code-display">----</div>
     <div id="waiting-players"></div>
-    <div style="font-size:12px;color:#666;text-align:center;">Waiting for players to join…</div>
+    <div style="font-size:12px;color:#888;margin-top:4px;">Pick your colour:</div>
+    <div id="waiting-color-opts" style="display:flex;gap:10px;justify-content:center;align-items:center;margin:4px 0;min-height:44px;"></div>
+    <div id="waiting-colour-msg" style="font-size:11px;color:#cc8833;min-height:14px;text-align:center;"></div>
     <button id="btn-start-online">Start Game →</button>
     <button id="btn-cancel-room" style="background:none;border:1px solid #444;color:#888;font-size:13px;padding:8px 20px;border-radius:6px;cursor:pointer;margin-top:4px;">✕ Cancel &amp; go home</button>
   </div>
@@ -311,7 +312,7 @@ body{font-family:system-ui,sans-serif;}
 
   </div>
   <a href="https://www.tantrix.com/english/TantrixGameRules.html" target="_blank" rel="noopener" style="font-size:15px;color:#333;text-decoration:none;margin-top:4px;font-weight:500;">📖 Official Tantrix Rules</a>
-  <span style="font-size:11px;color:#aaa;margin-top:2px;">v1.2.2</span>
+  <span style="font-size:11px;color:#aaa;margin-top:2px;">v1.2.3</span>
 </div>
 
 <div id="setup">
@@ -1230,7 +1231,6 @@ document.getElementById('btn-local').addEventListener('click',()=>{
 // ── Online game ─────────────────────────────────────────────────────────
 document.getElementById('btn-online').addEventListener('click',()=>{
   document.getElementById('online-panel').style.display='flex';
-  buildLobbyCols();
   initSocket();
 });
 
@@ -1285,37 +1285,83 @@ function showWaiting(){
   document.getElementById('online-panel').style.display='none';
   document.getElementById('waiting-panel').style.display='flex';
   document.getElementById('room-code-display').textContent=MP.roomCode;
-  document.getElementById('btn-start-online').style.display=(MP.isHost&&MP.players.length>=2)?'inline-block':'none';
+  document.getElementById('btn-start-online').style.display='none'; // hidden until colour chosen
   renderWaiting();
+  buildWaitingColours();
+}
+
+function buildWaitingColours(){
+  const cont=document.getElementById('waiting-color-opts');
+  if(!cont)return;
+  cont.innerHTML='';
+  const takenByOthers=new Set(MP.players.filter((_,i)=>i!==MP.myIndex).map(p=>p.colour).filter(Boolean));
+  ['R','Y','B','G'].forEach(c=>{
+    const taken=takenByOthers.has(c);
+    const selected=MP.lobbyColour===c;
+    const btn=document.createElement('div');
+    btn.style.cssText=`width:${selected?'42px':'32px'};height:${selected?'42px':'32px'};border-radius:50%;background:${CLR[c]};cursor:${taken?'not-allowed':'pointer'};opacity:${taken?'0.3':'1'};border:${selected?'3px solid #fff':'2px solid rgba(255,255,255,0.2)'};box-shadow:${selected?'0 0 0 2px rgba(255,255,255,0.5)':'none'};transition:all 0.15s;flex-shrink:0;`;
+    if(!taken){
+      btn.addEventListener('click',()=>{
+        MP.lobbyColour=c;
+        // Tell server our colour choice
+        if(MP.socket&&MP.roomCode){
+          MP.socket.emit('chooseColour',{roomCode:MP.roomCode,colour:c});
+        }
+        document.getElementById('waiting-colour-msg').textContent='';
+        buildWaitingColours();
+        // Show start button for host once colour chosen
+        if(MP.isHost&&MP.players.length>=2&&MP.lobbyColour){
+          document.getElementById('btn-start-online').style.display='inline-block';
+        }
+      });
+    }
+    cont.appendChild(btn);
+  });
 }
 function renderWaiting(){
   const cont=document.getElementById('waiting-players');cont.innerHTML='';
   MP.players.forEach((p,i)=>{
     const row=document.createElement('div');row.className='wp-row';
-    const dot=document.createElement('div');dot.className='wp-dot';dot.style.background=CLR[p.colour]||'#888';
-    const nm=document.createElement('span');nm.textContent=p.name+(p.isHost?' (Host)':'')+(i===MP.myIndex?' (you)':'');
+    const dot=document.createElement('div');dot.className='wp-dot';
+    dot.style.background=p.colour?CLR[p.colour]:'#444';
+    dot.title=p.colour?CN[p.colour]:'No colour yet';
+    const nm=document.createElement('span');
+    const colLabel=p.colour?` — ${CN[p.colour]}`:'';
+    nm.textContent=p.name+(p.isHost?' (Host)':'')+(i===MP.myIndex?' (you)':'')+colLabel;
     row.append(dot,nm);cont.appendChild(row);
   });
+  // Rebuild colour picker to reflect what others have taken
+  buildWaitingColours();
+  // Update start button visibility
+  const canStart=MP.isHost&&MP.players.length>=2&&MP.players.every(p=>p.colour)&&MP.lobbyColour;
+  const startBtn=document.getElementById('btn-start-online');
+  if(startBtn)startBtn.style.display=canStart?'inline-block':'none';
 }
 
 document.getElementById('btn-create-room').addEventListener('click',()=>{
   const name=document.getElementById('inp-name').value.trim()||'Player 1';
-  if(!MP.lobbyColour){lobbyMsg('Pick a colour first');return;}
-  MP.socket.emit('createRoom',{playerName:name,colour:MP.lobbyColour});
+  if(!name.trim()){lobbyMsg('Please enter your name first');return;}
+  MP.lobbyName=name;
+  // No colour yet — will be chosen in waiting room
+  MP.socket.emit('createRoom',{playerName:name,colour:null});
 });
 
 // btn-join-room removed — join input is always visible
 
 document.getElementById('btn-confirm-join').addEventListener('click',()=>{
   const name=document.getElementById('inp-name').value.trim()||'Player';
-  if(!MP.lobbyColour){lobbyMsg('Pick a colour first');return;}
+  if(!name.trim()){lobbyMsg('Please enter your name first');return;}
   const code=document.getElementById('inp-room-code').value.trim().toUpperCase();
   if(code.length!==4){lobbyMsg('Enter the 4-letter room code');return;}
-  MP.socket.emit('joinRoom',{roomCode:code,playerName:name,colour:MP.lobbyColour});
+  MP.lobbyName=name;
+  MP.socket.emit('joinRoom',{roomCode:code,playerName:name,colour:null});
 });
 
 document.getElementById('btn-start-online').addEventListener('click',()=>{
   if(!MP.isHost)return;
+  if(!MP.lobbyColour){document.getElementById('waiting-colour-msg').textContent='Please pick your colour first';return;}
+  const uncoloured=MP.players.filter(p=>!p.colour);
+  if(uncoloured.length>0){document.getElementById('waiting-colour-msg').textContent='Waiting for all players to pick a colour';return;}
   const playerDefs=MP.players.map(p=>({col:p.colour}));
   startGame(playerDefs);
   MP.socket.emit('startGame',{roomCode:MP.roomCode,gameState:serialiseG()});
