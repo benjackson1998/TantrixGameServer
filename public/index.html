@@ -279,6 +279,7 @@ body{font-family:system-ui,sans-serif;}
     <div id="waiting-players"></div>
     <div style="font-size:12px;color:#666;text-align:center;">Waiting for players to join…</div>
     <button id="btn-start-online">Start Game →</button>
+    <button id="btn-cancel-room" style="background:none;border:1px solid #444;color:#888;font-size:13px;padding:8px 20px;border-radius:6px;cursor:pointer;margin-top:4px;">✕ Cancel &amp; go home</button>
   </div>
   <div id="lobby-msg"></div>
   <div id="home-howto">
@@ -310,7 +311,7 @@ body{font-family:system-ui,sans-serif;}
 
   </div>
   <a href="https://www.tantrix.com/english/TantrixGameRules.html" target="_blank" rel="noopener" style="font-size:15px;color:#333;text-decoration:none;margin-top:4px;font-weight:500;">📖 Official Tantrix Rules</a>
-  <span style="font-size:11px;color:#aaa;margin-top:2px;">v1.2</span>
+  <span style="font-size:11px;color:#aaa;margin-top:2px;">v1.2.2</span>
 </div>
 
 <div id="setup">
@@ -364,6 +365,7 @@ body{font-family:system-ui,sans-serif;}
   <div id="bbar">
     <button class="bpri" id="bn">↩ New Game</button>
     <button id="bdone">→ Continue</button>
+    <button id="bexit" style="background:#3d1010;border:1px solid #6a2020;color:#e05555;border-radius:6px;cursor:pointer;touch-action:manipulation;">🏠 Exit</button>
     <button id="brot">↻ Rotate</button>
     <button id="log-btn">📋 Log</button>
     <button id="help-btn">❓ Help</button>
@@ -1116,7 +1118,10 @@ function renderPanels(){
       ct.textAlign='center';ct.textBaseline='middle';ct.fillText(tile.n,cx,cy);
       w.appendChild(c);
       if(fits){const b=document.createElement('span');b.className='badge';b.textContent='!';w.appendChild(b);}
-      if(isAct)w.addEventListener('click',()=>{if(G.sel===i&&G.selP===p)G.rot=(G.rot+1)%6;else{G.sel=i;G.selP=p;G.rot=0;}render();});
+      // In MP mode, only allow interaction with your own tiles on your turn
+      const canInteract=isAct&&(!MP.enabled||MP.myIndex===G.cur);
+      if(canInteract)w.addEventListener('click',()=>{if(G.sel===i&&G.selP===p)G.rot=(G.rot+1)%6;else{G.sel=i;G.selP=p;G.rot=0;}render();});
+      if(MP.enabled&&MP.myIndex!==G.cur)w.classList.add('inact'); // dim all tiles when not your turn
       grid.appendChild(w);
     });
     pp.append(hdr,grid);cont.appendChild(pp);
@@ -1126,6 +1131,17 @@ function renderPanels(){
 document.getElementById('bn').addEventListener('click',()=>{
   document.getElementById('game').style.display='none';
   document.getElementById('setup').style.display='flex';buildSetup();
+});
+
+document.getElementById('bexit').addEventListener('click',()=>{
+  if(!confirm('Exit to home screen? The current game will be lost.'))return;
+  // Reset MP if online
+  if(MP.enabled&&MP.socket){MP.socket.disconnect();MP.socket=null;}
+  MP.enabled=false;MP.roomCode=null;MP.myIndex=-1;MP.isHost=false;MP.players=[];
+  G.phase='idle';
+  document.getElementById('game').style.display='none';
+  document.getElementById('gameover-overlay').classList.remove('visible');
+  document.getElementById('lobby').style.display='flex';
 });
 document.getElementById('btn-home').addEventListener('click',()=>{
   document.getElementById('endscreen').style.display='none';
@@ -1147,6 +1163,7 @@ document.addEventListener('keydown',e=>{
   if((e.key==='r'||e.key==='R')&&G.sel!==null&&G.selP===G.cur){G.rot=(G.rot+1)%6;render();}
 });
 document.getElementById('brot').addEventListener('click',()=>{
+  if(MP.enabled&&MP.myIndex!==G.cur){setMsg("It's not your turn",'bad');return;}
   if(G.sel!==null&&G.selP===G.cur){G.rot=(G.rot+1)%6;render();}
   else setMsg('Select a tile first to rotate','bad');
 });
@@ -1220,8 +1237,9 @@ document.getElementById('btn-online').addEventListener('click',()=>{
 function buildLobbyCols(){
   const cont=document.getElementById('lobby-color-opts');cont.innerHTML='';
   ['R','Y','B','G'].forEach(c=>{
+    const selected=MP.lobbyColour===c;
     const btn=document.createElement('div');
-    btn.style.cssText=`width:28px;height:28px;border-radius:50%;background:${CLR[c]};cursor:pointer;border:2px solid ${MP.lobbyColour===c?'#fff':'transparent'};`;
+    btn.style.cssText=`width:${selected?'40px':'30px'};height:${selected?'40px':'30px'};border-radius:50%;background:${CLR[c]};cursor:pointer;border:${selected?'3px solid #fff':'2px solid rgba(255,255,255,0.3)'};box-shadow:${selected?'0 0 0 2px rgba(255,255,255,0.5)':'none'};transition:all 0.15s;flex-shrink:0;`;
     btn.addEventListener('click',()=>{MP.lobbyColour=c;buildLobbyCols();});
     cont.appendChild(btn);
   });
@@ -1237,10 +1255,12 @@ function initSocket(){
 
   MP.socket.on('roomCreated',({roomCode,players,yourIndex})=>{
     MP.roomCode=roomCode;MP.myIndex=yourIndex;MP.isHost=true;MP.players=players;
+    lobbyMsg('');  // clear any error message
     showWaiting();
   });
   MP.socket.on('joinedRoom',({roomCode,players,yourIndex})=>{
     MP.roomCode=roomCode;MP.myIndex=yourIndex;MP.isHost=false;MP.players=players;
+    lobbyMsg('');  // clear any error message
     showWaiting();
   });
   MP.socket.on('playersUpdated',(players)=>{
@@ -1273,7 +1293,7 @@ function renderWaiting(){
   MP.players.forEach((p,i)=>{
     const row=document.createElement('div');row.className='wp-row';
     const dot=document.createElement('div');dot.className='wp-dot';dot.style.background=CLR[p.colour]||'#888';
-    const nm=document.createElement('span');nm.textContent=p.name+(p.isHost?' 👑':'')+(i===MP.myIndex?' (you)':'');
+    const nm=document.createElement('span');nm.textContent=p.name+(p.isHost?' (Host)':'')+(i===MP.myIndex?' (you)':'');
     row.append(dot,nm);cont.appendChild(row);
   });
 }
@@ -1299,6 +1319,16 @@ document.getElementById('btn-start-online').addEventListener('click',()=>{
   const playerDefs=MP.players.map(p=>({col:p.colour}));
   startGame(playerDefs);
   MP.socket.emit('startGame',{roomCode:MP.roomCode,gameState:serialiseG()});
+});
+
+document.getElementById('btn-cancel-room').addEventListener('click',()=>{
+  // Disconnect socket and return to lobby home screen
+  if(MP.socket){MP.socket.disconnect();MP.socket=null;}
+  MP.roomCode=null;MP.myIndex=-1;MP.isHost=false;MP.players=[];MP.lobbyColour=null;
+  document.getElementById('waiting-panel').style.display='none';
+  document.getElementById('online-panel').style.display='none';
+  document.getElementById('lobby-msg').textContent='';
+  document.getElementById('lobby').style.display='flex';
 });
 
 // ── Serialise / deserialise ────────────────────────────────────────────
@@ -1330,10 +1360,11 @@ function applyRemoteState(gs){
   if(G.phase==='play'){
     const isMyTurn=!MP.enabled||(MP.myIndex===G.cur);
     if(G.turnPhase==='forced1'||G.turnPhase==='forced2'){
-      setMsg(`P${G.cur+1} (${CN[G.players[G.cur].col]}): fill forced spaces first`,'warn');
+      if(isMyTurn)setMsg(`Your turn — fill the forced space (orange) first`,'warn');
+      else setMsg(`Waiting for P${G.cur+1} ${CN[G.players[G.cur].col]} to fill a forced space…`,'info');
     } else {
-      if(isMyTurn)setMsg(`P${G.cur+1} (${CN[G.players[G.cur].col]}): make your free move`,'info');
-      else setMsg(`Waiting for P${G.cur+1} (${CN[G.players[G.cur].col]})…`,'info');
+      if(isMyTurn)setMsg(`Your turn — make your free move`,'info');
+      else setMsg(`Waiting for P${G.cur+1} ${CN[G.players[G.cur].col]} to play…`,'info');
     }
   }
   updateUI();render();
@@ -1361,4 +1392,3 @@ document.getElementById('bdone').addEventListener('click',()=>{
 });
 
 </script>
-
