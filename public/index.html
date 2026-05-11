@@ -137,6 +137,17 @@ body{font-family:system-ui,sans-serif;}
 #bag-disp span{color:#bbb;font-weight:600;}
 #bdone{display:none;}
 
+/* ── AI Setup screen ── */
+#ai-setup{display:none;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:clamp(10px,2vh,20px);padding:clamp(16px,3vh,28px);overflow-y:auto;background:white;}
+#ai-setup h2{font-size:clamp(22px,5vw,32px);color:#111;font-weight:700;letter-spacing:.05em;}
+#ai-setup .sub{font-size:clamp(13px,2.5vw,16px);color:#666;}
+.ai-cnt-btn{width:clamp(44px,9vw,56px);height:clamp(44px,9vw,56px);border-radius:50%;border:2px solid #ccc;background:#f0f0f0;color:#555;font-size:clamp(16px,3vw,20px);font-weight:700;cursor:pointer;}
+.ai-cnt-btn.active{border-color:#1a8a1a;color:#1a8a1a;background:#e8f5e9;}
+.ai-diff-btn{padding:10px 18px;border-radius:8px;border:2px solid #ccc;background:#f0f0f0;color:#555;font-size:clamp(13px,2.5vw,15px);font-weight:600;cursor:pointer;}
+.ai-diff-btn.active{border-color:#1a50cc;color:#1a50cc;background:#e8eeff;}
+.ai-color-dot{border-radius:50%;cursor:pointer;transition:all 0.15s;flex-shrink:0;border:2px solid transparent;}
+.ai-color-dot.selected{border-color:#111;box-shadow:0 0 0 2px rgba(0,0,0,0.3);}
+
 /* ── Game over modal overlay ── */
 #gameover-overlay{
   display:none;position:absolute;inset:0;
@@ -258,6 +269,7 @@ body{font-family:system-ui,sans-serif;}
   <h2>⬡ TANTRIX</h2>
   <div class="mode-btns">
     <div class="mode-btn" id="btn-local">🖥 Local Game<br><small style="font-weight:400;font-size:11px;color:#777">Same device</small></div>
+    <div class="mode-btn" id="btn-vs-computer">🤖 vs Computer<br><small style="font-weight:400;font-size:11px;color:#777">1 player vs AI</small></div>
     <div class="mode-btn" id="btn-online">🌐 Online Game<br><small style="font-weight:400;font-size:11px;color:#777">Play over network</small></div>
   </div>
   <div id="online-panel">
@@ -321,7 +333,7 @@ body{font-family:system-ui,sans-serif;}
 
   </div>
   <a href="https://www.tantrix.com/english/TantrixGameRules.html" target="_blank" rel="noopener" style="font-size:15px;color:#333;text-decoration:none;margin-top:4px;font-weight:500;">📖 Official Tantrix Rules</a>
-  <span style="font-size:11px;color:#aaa;margin-top:2px;">v1.2.4</span>
+  <span style="font-size:11px;color:#aaa;margin-top:2px;">v1.3.1</span>
 </div>
 
 <div id="setup">
@@ -344,6 +356,51 @@ body{font-family:system-ui,sans-serif;}
     <div id="scheme-swatches"></div>
   </div>
   <button id="start-btn">Start Game</button>
+</div>
+
+<div id="ai-setup">
+  <h2>⬡ TANTRIX</h2>
+  <p class="sub">vs Computer</p>
+
+  <div style="display:flex;flex-direction:column;align-items:center;gap:14px;width:100%;max-width:340px;">
+
+    <div style="width:100%;">
+      <label style="font-size:clamp(14px,2.5vw,16px);color:#555;font-weight:500;display:block;margin-bottom:8px;">Your colour</label>
+      <div id="ai-color-opts" style="display:flex;gap:10px;justify-content:center;"></div>
+    </div>
+
+    <div style="width:100%;">
+      <label style="font-size:clamp(14px,2.5vw,16px);color:#555;font-weight:500;display:block;margin-bottom:8px;">Number of computer opponents</label>
+      <div style="display:flex;gap:10px;justify-content:center;">
+        <button class="ai-cnt-btn active" data-n="1">1</button>
+        <button class="ai-cnt-btn" data-n="2">2</button>
+        <button class="ai-cnt-btn" data-n="3">3</button>
+      </div>
+    </div>
+
+    <div style="width:100%;">
+      <label style="font-size:clamp(14px,2.5vw,16px);color:#555;font-weight:500;display:block;margin-bottom:8px;">Difficulty</label>
+      <div style="display:flex;gap:8px;justify-content:center;">
+        <button class="ai-diff-btn" data-d="easy">🎲 Easy</button>
+        <button class="ai-diff-btn active" data-d="medium">🧠 Medium</button>
+        <button class="ai-diff-btn" data-d="hard">💀 Hard</button>
+      </div>
+      <div id="ai-diff-desc" style="display:none;"></div>
+    </div>
+
+    <div id="ai-scheme-picker" style="width:100%;">
+      <label style="font-size:clamp(13px,2vw,15px);color:#555;font-weight:500;display:block;margin-bottom:6px;">Colour scheme</label>
+      <select id="ai-scheme-select" style="appearance:none;-webkit-appearance:none;background:#f7f7f7;border:1px solid #ccc;color:#333;font-size:14px;padding:10px 36px 10px 14px;border-radius:8px;cursor:pointer;width:100%;background-image:url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E&quot;);background-repeat:no-repeat;background-position:right 12px center;">
+        <option value="classic">Classic — Red · Yellow · Green · Blue</option>
+        <option value="cbfriendly">Colour-blind friendly — Blue · Orange · Teal · Magenta</option>
+        <option value="vivid">Vivid — Cyan · Gold · Purple · Lime</option>
+      </select>
+      <div id="ai-scheme-swatches" style="display:flex;gap:6px;align-items:center;padding:8px 12px;background:#f7f7f7;border-radius:8px;border:1px solid #e0e0e0;margin-top:6px;"></div>
+    </div>
+
+    <button id="ai-start-btn" style="padding:clamp(12px,2.5vw,16px) clamp(32px,6vw,52px);background:#1a3d28;border:1px solid #2a6040;color:#3db87a;font-size:clamp(16px,3vw,20px);font-weight:700;border-radius:12px;cursor:pointer;">Start Game</button>
+    <button onclick="document.getElementById('ai-setup').style.display='none';document.getElementById('lobby').style.display='flex';" style="background:none;border:none;color:#888;font-size:13px;cursor:pointer;">← Back</button>
+  </div>
 </div>
 
 <div id="game">
@@ -1211,6 +1268,301 @@ document.getElementById('brot').addEventListener('click',()=>{
 });
 window.addEventListener('resize',()=>{resizeBoard();render();});
 
+// ══════════════════════════════════════════════════════════════════════
+// AI PLAYER SYSTEM
+// ══════════════════════════════════════════════════════════════════════
+
+const AI = {
+  enabled: false,
+  difficulty: 'medium', // 'easy' | 'medium' | 'hard'
+  humanIndex: 0,        // which player index is the human
+};
+
+// ── AI Setup screen logic ──────────────────────────────────────────────
+let aiNumOpponents = 1;
+let aiHumanColour = null;
+
+document.getElementById('btn-vs-computer').addEventListener('click', () => {
+  document.getElementById('lobby').style.display = 'none';
+  document.getElementById('ai-setup').style.display = 'flex';
+  buildAiColorOpts();
+  buildAiSwatches();
+});
+
+function buildAiColorOpts() {
+  const cont = document.getElementById('ai-color-opts');
+  cont.style.alignItems = 'center';
+  cont.innerHTML = '';
+  ALL_COLS.forEach(c => {
+    const dot = document.createElement('div');
+    const sel = aiHumanColour === c;
+    dot.className = 'ai-color-dot' + (sel ? ' selected' : '');
+    // All dots same outer size (42px), selected one has no padding gap, unselected has inset
+    dot.style.cssText = `width:42px;height:42px;background:${CLR[c]};box-sizing:border-box;` +
+      (sel ? 'border:3px solid #111;box-shadow:0 0 0 2px rgba(0,0,0,0.25);' :
+             'border:2px solid rgba(0,0,0,0.1);transform:scale(0.76);');
+    dot.title = CN[c];
+    dot.addEventListener('click', () => { aiHumanColour = c; buildAiColorOpts(); });
+    cont.appendChild(dot);
+  });
+}
+
+function buildAiSwatches() {
+  const cont = document.getElementById('ai-scheme-swatches');
+  if (!cont) return;
+  cont.innerHTML = '';
+  Object.entries(SCHEMES[activeScheme].cols).forEach(([k, {hex, label}]) => {
+    const item = document.createElement('div');
+    item.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;';
+    const dot = document.createElement('div');
+    dot.style.cssText = `width:28px;height:28px;border-radius:50%;background:${hex};border:2px solid rgba(0,0,0,0.1);`;
+    const lbl = document.createElement('div');
+    lbl.style.cssText = 'font-size:10px;color:#555;text-align:center;';
+    lbl.textContent = label;
+    item.append(dot, lbl);
+    cont.appendChild(item);
+  });
+}
+
+// AI count buttons
+document.querySelectorAll('.ai-cnt-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.ai-cnt-btn').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    aiNumOpponents = parseInt(b.dataset.n);
+  });
+});
+
+// Difficulty buttons
+const diffDesc = { easy: '', medium: '', hard: '' };
+document.querySelectorAll('.ai-diff-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.ai-diff-btn').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    AI.difficulty = b.dataset.d;
+    document.getElementById('ai-diff-desc').textContent = diffDesc[AI.difficulty];
+  });
+});
+
+// Scheme picker
+document.getElementById('ai-scheme-select').addEventListener('change', e => {
+  activeScheme = e.target.value;
+  buildAiColorOpts();
+  buildAiSwatches();
+  renderSwatches();
+});
+
+// Start AI game
+document.getElementById('ai-start-btn').addEventListener('click', () => {
+  if (!aiHumanColour) { alert('Please pick your colour first'); return; }
+  // Build player defs: human first, then AI players with remaining colours
+  const remaining = ALL_COLS.filter(c => c !== aiHumanColour);
+  shuffle(remaining);
+  const playerDefs = [{ col: aiHumanColour, isAI: false }];
+  for (let i = 0; i < aiNumOpponents; i++) {
+    playerDefs.push({ col: remaining[i], isAI: true });
+  }
+  AI.enabled = true;
+  AI.humanIndex = 0;
+  document.getElementById('ai-setup').style.display = 'none';
+  document.getElementById('game').style.display = 'flex';
+  startGame(playerDefs);
+  setTimeout(resizeBoard, 50);
+});
+
+// ── Mark AI players in startGame ──────────────────────────────────────
+const _origStartGame = startGame;
+function startGame(playerDefs) {
+  _origStartGame(playerDefs);
+  // Tag AI players
+  playerDefs.forEach((pd, i) => {
+    if (pd.isAI) G.players[i].isAI = true;
+  });
+}
+
+// ── AI turn trigger — called from startTurn ────────────────────────────
+function maybeDoAiTurn() {
+  if (!AI.enabled) return;
+  if (G.phase !== 'play') return;
+  if (!G.players[G.cur].isAI) return;
+  // Delay so the human can see the board state before AI moves
+  setTimeout(doAiMove, 700);
+}
+
+// ── Core AI move logic ─────────────────────────────────────────────────
+function doAiMove() {
+  if (G.phase !== 'play' || !G.players[G.cur]?.isAI) return;
+
+  const forced = getForcedSpaces();
+  const mustFill = (G.turnPhase === 'forced1' || G.turnPhase === 'forced2') && forced.length > 0;
+
+  // Get all valid moves for AI
+  const moves = getAiMoves(mustFill ? forced : null);
+
+  if (moves.length === 0) {
+    // No valid move — end turn
+    endTurn();
+    return;
+  }
+
+  // Pick move based on difficulty
+  let chosen;
+  if (AI.difficulty === 'easy') {
+    chosen = moves[Math.floor(Math.random() * moves.length)];
+  } else if (AI.difficulty === 'medium') {
+    chosen = bestGreedyMove(moves);
+  } else {
+    chosen = bestLookaheadMove(moves);
+  }
+
+  // Execute the move
+  const { q, r, tileIdx, rot } = chosen;
+  const rt = rotateTile(G.players[G.cur].hand[tileIdx], rot);
+  placeTile(q, r, rt, tileIdx);
+
+  // Hand empty after placing?
+  if (G.players[G.cur].hand.length === 0) { endTurn(); return; }
+
+  // Check if more forced moves needed
+  if (mustFill) {
+    if (canFillAnyForced()) {
+      G.turnPhase = 'forced2';
+      setMsg(`Computer filling forced spaces…`, 'warn');
+      updateUI(); render();
+      setTimeout(doAiMove, 600);
+    } else {
+      if (G.turnPhase === 'forced1') {
+        G.turnPhase = 'free';
+        setMsg(`Computer making free move…`, 'info');
+        updateUI(); render();
+        setTimeout(doAiMove, 600);
+      } else {
+        endTurn();
+      }
+    }
+  } else {
+    // Free move done — check if forced2 needed
+    if (canFillAnyForced()) {
+      G.turnPhase = 'forced2';
+      setMsg(`Computer filling forced spaces…`, 'warn');
+      updateUI(); render();
+      setTimeout(doAiMove, 600);
+    } else {
+      endTurn();
+    }
+  }
+}
+
+// Get all valid moves for AI (optionally restricted to forced spaces)
+function getAiMoves(forcedSpaces) {
+  const hand = G.players[G.cur].hand;
+  const positions = forcedSpaces || slots();
+  const moves = [];
+  for (const { q, r } of positions) {
+    for (let ti = 0; ti < hand.length; ti++) {
+      for (let rot = 0; rot < 6; rot++) {
+        const rt = rotateTile(hand[ti], rot);
+        if (forcedSpaces ? canPlace(q, r, rt) : canPlaceFree(q, r, rt)) {
+          moves.push({ q, r, tileIdx: ti, rot, tile: rt });
+        }
+      }
+    }
+  }
+  return moves;
+}
+
+// Score board for a given colour
+function scoreForColour(col) {
+  return bestScore(col).score;
+}
+
+// Medium: greedy — pick move that maximises AI's own score
+function bestGreedyMove(moves) {
+  const col = G.players[G.cur].col;
+  let best = null, bestSc = -1;
+  for (const m of moves) {
+    // Temporarily place
+    G.board.set(hk(m.q, m.r), m.tile);
+    const sc = scoreForColour(col);
+    G.board.delete(hk(m.q, m.r));
+    if (sc > bestSc) { bestSc = sc; best = m; }
+  }
+  return best || moves[0];
+}
+
+// Hard: lookahead — try AI move, then estimate best human response, minimise human score
+function bestLookaheadMove(moves) {
+  const aiCol = G.players[G.cur].col;
+  // Find human player colour
+  const humanPlayer = G.players.find(p => !p.isAI);
+  const humanCol = humanPlayer ? humanPlayer.col : null;
+
+  let best = null, bestSc = -Infinity;
+
+  for (const m of moves) {
+    G.board.set(hk(m.q, m.r), m.tile);
+    const aiScore = scoreForColour(aiCol);
+    // Estimate human best response (greedy)
+    let humanBest = 0;
+    if (humanCol) {
+      const humanMoves = getAiMovesForColour(humanCol);
+      for (const hm of humanMoves.slice(0, 15)) { // limit for performance
+        G.board.set(hk(hm.q, hm.r), hm.tile);
+        const hsc = scoreForColour(humanCol);
+        G.board.delete(hk(hm.q, hm.r));
+        if (hsc > humanBest) humanBest = hsc;
+      }
+    }
+    G.board.delete(hk(m.q, m.r));
+    // Maximise (our score - human score)
+    const combined = aiScore * 2 - humanBest;
+    if (combined > bestSc) { bestSc = combined; best = m; }
+  }
+  return best || moves[0];
+}
+
+// Helper: get moves for a specific colour (for lookahead simulation)
+function getAiMovesForColour(col) {
+  // Find which player index has this colour
+  const pi = G.players.findIndex(p => p.col === col);
+  if (pi < 0) return [];
+  const hand = G.players[pi].hand;
+  const positions = slots();
+  const moves = [];
+  for (const { q, r } of positions) {
+    for (let ti = 0; ti < hand.length; ti++) {
+      for (let rot = 0; rot < 6; rot++) {
+        const rt = rotateTile(hand[ti], rot);
+        if (canPlaceFree(q, r, rt)) moves.push({ q, r, tileIdx: ti, rot, tile: rt });
+      }
+    }
+  }
+  return moves;
+}
+
+// ── Hook into startTurn to trigger AI ─────────────────────────────────
+const _origStartTurn = startTurn;
+function startTurn() {
+  _origStartTurn();
+  // After startTurn sets up the turn, trigger AI if it's an AI player
+  if (AI.enabled && G.phase === 'play' && G.players[G.cur]?.isAI) {
+    setMsg('Computer is thinking…', 'info');
+    updateUI(); render();
+    setTimeout(maybeDoAiTurn, 500);
+  }
+}
+
+// ── Disable board/hand interaction when it's AI's turn ─────────────────
+const _origDoClick_AI = doClick;
+function doClick(px, py) {
+  if (AI.enabled && G.players[G.cur]?.isAI) {
+    setMsg("Computer is thinking…", 'info');
+    return;
+  }
+  _origDoClick_AI(px, py);
+}
+
+
 
 // ── Game log functions ────────────────────────────────────────────────────────
 function addLogEntry(entry){
@@ -1276,11 +1628,13 @@ document.getElementById('btn-online').addEventListener('click',()=>{
 });
 
 function buildLobbyCols(){
-  const cont=document.getElementById('lobby-color-opts');cont.innerHTML='';
+  const cont=document.getElementById('lobby-color-opts');
+  cont.style.alignItems='center';
+  cont.innerHTML='';
   ['R','Y','B','G'].forEach(c=>{
     const selected=MP.lobbyColour===c;
     const btn=document.createElement('div');
-    btn.style.cssText=`width:${selected?'40px':'30px'};height:${selected?'40px':'30px'};border-radius:50%;background:${CLR[c]};cursor:pointer;border:${selected?'3px solid #fff':'2px solid rgba(255,255,255,0.3)'};box-shadow:${selected?'0 0 0 2px rgba(255,255,255,0.5)':'none'};transition:all 0.15s;flex-shrink:0;`;
+    btn.style.cssText=`width:40px;height:40px;box-sizing:border-box;border-radius:50%;background:${CLR[c]};cursor:pointer;border:${selected?'3px solid #fff':'2px solid rgba(255,255,255,0.2)'};box-shadow:${selected?'0 0 0 2px rgba(255,255,255,0.5)':'none'};transform:${selected?'scale(1)':'scale(0.78)'};transition:all 0.15s;flex-shrink:0;`;
     btn.addEventListener('click',()=>{MP.lobbyColour=c;buildLobbyCols();});
     cont.appendChild(btn);
   });
@@ -1357,7 +1711,7 @@ function buildWaitingColours(){
     const taken=takenByOthers.has(c);
     const selected=MP.lobbyColour===c;
     const btn=document.createElement('div');
-    btn.style.cssText=`width:${selected?'42px':'32px'};height:${selected?'42px':'32px'};border-radius:50%;background:${CLR[c]};cursor:${taken?'not-allowed':'pointer'};opacity:${taken?'0.3':'1'};border:${selected?'3px solid #fff':'2px solid rgba(255,255,255,0.2)'};box-shadow:${selected?'0 0 0 2px rgba(255,255,255,0.5)':'none'};transition:all 0.15s;flex-shrink:0;`;
+    btn.style.cssText=`width:42px;height:42px;box-sizing:border-box;border-radius:50%;background:${CLR[c]};cursor:${taken?'not-allowed':'pointer'};opacity:${taken?'0.3':'1'};border:${selected?'3px solid #fff':'2px solid rgba(255,255,255,0.15)'};box-shadow:${selected?'0 0 0 2px rgba(255,255,255,0.5)':'none'};transform:${selected?'scale(1)':'scale(0.76)'};transition:all 0.15s;flex-shrink:0;`;
     if(!taken){
       btn.addEventListener('click',()=>{
         MP.lobbyColour=c;
