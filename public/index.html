@@ -314,9 +314,9 @@ body{font-family:system-ui,sans-serif;}
     <div id="waiting-scheme-row" style="display:none;flex-direction:column;gap:6px;width:100%;max-width:300px;">
       <div style="font-size:12px;color:#888;">Colour scheme (applies to all players):</div>
       <select id="waiting-scheme-select" style="appearance:none;-webkit-appearance:none;background:#1a1a1a;border:1px solid #333;color:#eee;font-size:13px;padding:8px 32px 8px 12px;border-radius:8px;cursor:pointer;width:100%;background-image:url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23666' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E&quot;);background-repeat:no-repeat;background-position:right 10px center;">
-        <option value="classic">Classic — Red · Yellow · Green · Blue</option>
-        <option value="cbfriendly">Colour-blind friendly — Blue · Orange · Teal · Magenta</option>
-        <option value="vivid">Vivid — Cyan · Gold · Purple · Lime</option>
+        <option value="classic">Classic</option>
+        <option value="cbfriendly">Colour-blind friendly</option>
+        <option value="vivid">Vivid</option>
       </select>
       <div id="waiting-scheme-swatches" style="display:flex;gap:6px;align-items:center;padding:8px 10px;background:#1a1a1a;border-radius:8px;border:1px solid #2a2a2a;"></div>
     </div>
@@ -353,7 +353,7 @@ body{font-family:system-ui,sans-serif;}
 
   </div>
   <a href="https://www.tantrix.com/english/TantrixGameRules.html" target="_blank" rel="noopener" style="font-size:15px;color:#333;text-decoration:none;margin-top:4px;font-weight:500;">📖 Official Tantrix Rules</a>
-  <span style="font-size:11px;color:#aaa;margin-top:2px;">v1.4.1</span>
+  <span style="font-size:11px;color:#aaa;margin-top:2px;">v1.4.3</span>
 </div>
 
 <div id="setup">
@@ -369,13 +369,14 @@ body{font-family:system-ui,sans-serif;}
   <div id="scheme-picker">
     <label for="scheme-select">Colour scheme</label>
     <select id="scheme-select">
-      <option value="classic">Classic — Red · Yellow · Green · Blue</option>
-      <option value="cbfriendly">Colour-blind friendly — Blue · Orange · Teal · Magenta</option>
-      <option value="vivid">Vivid — Cyan · Gold · Purple · Lime</option>
+      <option value="classic">Classic</option>
+      <option value="cbfriendly">Colour-blind friendly</option>
+      <option value="vivid">Vivid</option>
     </select>
     <div id="scheme-swatches"></div>
   </div>
   <button id="start-btn">Start Game</button>
+  <button onclick="document.getElementById('setup').style.display='none';document.getElementById('lobby').style.display='flex';" style="background:none;border:none;color:#888;font-size:14px;cursor:pointer;margin-top:4px;">← Back to home</button>
 </div>
 
 <div id="ai-setup">
@@ -411,9 +412,9 @@ body{font-family:system-ui,sans-serif;}
     <div id="ai-scheme-picker" style="width:100%;">
       <label style="font-size:clamp(13px,2vw,15px);color:#555;font-weight:500;display:block;margin-bottom:6px;">Colour scheme</label>
       <select id="ai-scheme-select" style="appearance:none;-webkit-appearance:none;background:#f7f7f7;border:1px solid #ccc;color:#333;font-size:14px;padding:10px 36px 10px 14px;border-radius:8px;cursor:pointer;width:100%;background-image:url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E&quot;);background-repeat:no-repeat;background-position:right 12px center;">
-        <option value="classic">Classic — Red · Yellow · Green · Blue</option>
-        <option value="cbfriendly">Colour-blind friendly — Blue · Orange · Teal · Magenta</option>
-        <option value="vivid">Vivid — Cyan · Gold · Purple · Lime</option>
+        <option value="classic">Classic</option>
+        <option value="cbfriendly">Colour-blind friendly</option>
+        <option value="vivid">Vivid</option>
       </select>
       <div id="ai-scheme-swatches" style="display:flex;gap:6px;align-items:center;padding:8px 12px;background:#f7f7f7;border-radius:8px;border:1px solid #e0e0e0;margin-top:6px;"></div>
     </div>
@@ -485,7 +486,11 @@ body{font-family:system-ui,sans-serif;}
       <div class="tip"><span class="tip-icon">✕</span><span><strong>Dark hexes with ✕</strong> are controlled sides — blocked until the adjacent forced space is filled.</span></div>
 
       <h4>Online multiplayer</h4>
-      <div class="tip"><span class="tip-icon">🌐</span><span><strong>Coming soon!</strong> Online multiplayer is currently in development.</span></div>
+      <div class="tip"><span class="tip-icon">➕</span><span>Tap <strong>Online Game</strong>, enter your name, then tap <strong>Create Room</strong>. Share the 4-letter code with friends.</span></div>
+      <div class="tip"><span class="tip-icon">🔗</span><span>Others tap <strong>Online Game</strong>, enter their name and the room code, then tap <strong>Join →</strong>.</span></div>
+      <div class="tip"><span class="tip-icon">🎨</span><span>Once in the waiting room, everyone <strong>picks their colour</strong>. Taken colours are greyed out.</span></div>
+      <div class="tip"><span class="tip-icon">▶</span><span>The host picks the <strong>colour scheme</strong> then taps <strong>Start Game</strong> when everyone is ready.</span></div>
+      <div class="tip"><span class="tip-icon">🏆</span><span>Tap <strong>Top 10</strong> in the bottom bar during an online game to see the all-time leaderboard.</span></div>
 
       <h4>Scoring</h4>
       <div class="tip"><span class="tip-icon">📏</span><span>Longest connected line of your colour = 1pt per tile.</span></div>
