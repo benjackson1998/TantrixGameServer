@@ -81,6 +81,23 @@ body{font-family:system-ui,sans-serif;}
 #first-box h3{font-size:clamp(18px,4vw,24px);font-weight:700;color:#eee;margin:0;}
 #first-box p{font-size:clamp(13px,2.5vw,15px);color:#888;margin:4px 0 0;}
 
+/* ── Your turn announcement ── */
+@keyframes yourTurnIn{from{opacity:0;transform:translate(-50%,-50%) scale(0.6);}to{opacity:1;transform:translate(-50%,-50%) scale(1);}}
+@keyframes yourTurnOut{from{opacity:1;transform:translate(-50%,-50%) scale(1);}to{opacity:0;transform:translate(-50%,-50%) scale(0.8);}}
+#your-turn-badge{
+  display:none;position:absolute;left:50%;top:50%;
+  transform:translate(-50%,-50%);
+  background:rgba(10,10,10,0.85);
+  border:2px solid var(--ytb-col,#3db87a);
+  border-radius:14px;padding:16px 32px;text-align:center;
+  z-index:55;pointer-events:none;
+  box-shadow:0 0 24px var(--ytb-col,rgba(61,184,122,0.4));
+}
+#your-turn-badge.in{display:block;animation:yourTurnIn 0.3s ease forwards;}
+#your-turn-badge.out{animation:yourTurnOut 0.3s ease forwards;}
+#your-turn-badge h3{font-size:clamp(18px,4vw,26px);font-weight:800;color:#fff;margin:0;letter-spacing:.06em;}
+#your-turn-badge p{font-size:clamp(11px,2vw,14px);color:#aaa;margin:4px 0 0;}
+
 /* ── Game log panel ── */
 #log-btn{font-size:clamp(12px,2.2vw,15px);padding:clamp(7px,1.5vw,10px) clamp(12px,2.5vw,18px);border-radius:6px;border:1px solid #444;background:#252525;color:#ddd;cursor:pointer;touch-action:manipulation;}
 #log-btn:hover{background:#333;color:#fff;}
@@ -134,7 +151,8 @@ body{font-family:system-ui,sans-serif;}
 /* ── Side panels (desktop) ── */
 #panels{width:260px;background:#161616;border-left:1px solid #222;display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0;}
 .pp{padding:12px 12px 10px;border-bottom:1px solid #1e1e1e;flex-shrink:0;}
-.pp.act{background:#1e1e1e;}
+.pp.act{background:#1e1e1e;border-left:3px solid var(--act-col,#3db87a);animation:ppPulse 1.8s ease-in-out infinite;}
+@keyframes ppPulse{0%,100%{box-shadow:inset 0 0 0 0 transparent;}50%{box-shadow:inset 0 0 10px 0 var(--act-col,rgba(61,184,122,0.15));}}
 .pp-hdr{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
 .pp-dot{width:16px;height:16px;border-radius:50%;flex-shrink:0;}
 .pp-name{font-size:clamp(14px,2.2vw,17px);font-weight:600;color:#ddd;}
@@ -222,8 +240,8 @@ body{font-family:system-ui,sans-serif;}
 /* ── Mobile: panels below board ── */
 @media(max-width:600px){
   #main{flex-direction:column;}
-  #panels{width:100%;height:170px;max-height:170px;border-left:none;border-top:1px solid #222;flex-direction:row;overflow-x:auto;overflow-y:hidden;flex-shrink:0;}
-  .pp{border-bottom:none;border-right:1px solid #1e1e1e;min-width:200px;flex-shrink:0;padding:8px 10px;}
+  #panels{width:100%;height:200px;max-height:200px;border-left:none;border-top:1px solid #222;flex-direction:row;overflow-x:auto;overflow-y:hidden;flex-shrink:0;}
+  .pp{border-bottom:none;border-right:1px solid #1e1e1e;min-width:160px;flex-shrink:0;padding:6px 8px;overflow:hidden;}
   .pp-hdr{margin-bottom:6px;}
   .hgrid{gap:5px;}
   .pp-name{font-size:17px;}
@@ -353,7 +371,7 @@ body{font-family:system-ui,sans-serif;}
 
   </div>
   <a href="https://www.tantrix.com/english/TantrixGameRules.html" target="_blank" rel="noopener" style="font-size:15px;color:#333;text-decoration:none;margin-top:4px;font-weight:500;">📖 Official Tantrix Rules</a>
-  <span style="font-size:11px;color:#aaa;margin-top:2px;">v1.4.3</span>
+  <span style="font-size:11px;color:#aaa;margin-top:2px;">v1.5.1</span>
 </div>
 
 <div id="setup">
@@ -427,7 +445,13 @@ body{font-family:system-ui,sans-serif;}
 <div id="game">
   <div id="hdr"><h2>⬡ TANTRIX</h2><span id="game-mode-label" style="font-size:11px;padding:2px 8px;border-radius:10px;background:#252525;color:#888;font-weight:500;flex-shrink:0;white-space:nowrap;"></span><span id="hint">Select tile · tap twice on board to rotate · drag to pan</span><a href="https://www.tantrix.com/english/TantrixGameRules.html" target="_blank" rel="noopener" style="font-size:14px;color:#bbb;text-decoration:none;margin-left:10px;white-space:nowrap;font-weight:500;">📖 Rules</a></div>
   <div id="sbar"><span id="msg" class="info">…</span><span id="phase-ind" class="pi"></span></div>
-  <!-- Player goes first announcement -->
+  <!-- Your turn badge -->
+<div id="your-turn-badge">
+  <h3 id="ytb-title">YOUR TURN</h3>
+  <p id="ytb-sub">Make your move</p>
+</div>
+
+<!-- Player goes first announcement -->
 <div id="first-announcement">
   <div id="first-box">
     <div class="fa-emoji">🎲</div>
@@ -509,7 +533,10 @@ body{font-family:system-ui,sans-serif;}
   <h2>🏆 Game Over!</h2>
   <p class="subtitle">Final scores</p>
   <div id="results-list"></div>
-  <button id="btn-home">🏠 Back to Home</button>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
+    <button id="btn-home">🏠 Back to Home</button>
+    <button id="btn-save-board" style="padding:clamp(10px,2vw,14px) clamp(20px,4vw,32px);background:#1a2a3d;border:1px solid #2a4060;color:#5599dd;font-size:clamp(13px,2.5vw,16px);font-weight:600;border-radius:10px;cursor:pointer;">📸 Save Board</button>
+  </div>
   <a href="https://www.tantrix.com/english/TantrixGameRules.html" target="_blank" rel="noopener" class="rules-link">📖 Official Tantrix Rules</a>
 </div>
 
@@ -719,11 +746,11 @@ document.getElementById('start-btn').addEventListener('click',()=>{
   if(setupPlayers.some(p=>!p.col)){alert('Each player needs a colour.');return;}
   document.getElementById('setup').style.display='none';
   document.getElementById('game').style.display='flex';
-  startGame(setupPlayers.map(p=>({...p})));
+  startGame(setupPlayers.map((p,i)=>({...p,name:p.name||`Player ${i+1}`})));
 });
 
 // ── Game ──────────────────────────────────────────────────────────────────────
-const G={board:new Map(),bag:[],players:[],cur:0,phase:'idle',turnPhase:'free',sel:null,selP:-1,rot:0,_lastHoverQ:null,_lastHoverR:null,log:[]};
+const G={board:new Map(),bag:[],players:[],cur:0,phase:'idle',turnPhase:'free',sel:null,selP:-1,rot:0,_lastHoverQ:null,_lastHoverR:null,log:[],mode:'local',_anim:null};
 function startGame(playerDefs){
   const bag=TILES.map(t=>({...t}));shuffle(bag);
   G.bag=bag;G.board=new Map();
@@ -735,7 +762,7 @@ function startGame(playerDefs){
   G.cur=0|Math.random()*G.players.length;
   const fa=document.getElementById('first-announcement');
   const ft=document.getElementById('first-text');
-  if(fa&&ft){ft.textContent=`P${G.cur+1} ${CN[G.players[G.cur].col]} goes first!`;fa.classList.add('visible');setTimeout(()=>fa.classList.remove('visible'),2200);}
+  if(fa&&ft){ft.textContent=`${G.players[G.cur]?.name||'P'+(G.cur+1)} (${CN[G.players[G.cur].col]}) goes first!`;fa.classList.add('visible');setTimeout(()=>fa.classList.remove('visible'),2200);}
   startTurn();setTimeout(resizeBoard,50);
 }
 function drawT(p){if(G.bag.length)G.players[p].hand.push(G.bag.pop());}
@@ -744,6 +771,8 @@ function updateModeLabel(){
   if(!el)return;
   const labels={'local':'🖥 Local','ai-easy':'🤖 Easy','ai-medium':'🤖 Medium','ai-hard':'🤖 Hard','online':'🌐 Online'};
   el.textContent=labels[G.mode]||'';
+  const tips={'ai-easy':'Random','ai-medium':'Greedy','ai-hard':'Lookahead'};
+  el.title=tips[G.mode]||'';
 }
 function rotateTile(t,n){const edges=rotateEdges(t.edges,n);return{...t,edges,curves:edgesToCurves(edges)};}
 function occCount(q,r,aq,ar){return nbrs(q,r).filter(({q:nq,r:nr})=>G.board.has(hk(nq,nr))||(aq!==undefined&&nq===aq&&nr===ar)).length;}
@@ -902,6 +931,7 @@ function updateUI(){
 }
 function placeTile(q,r,rt,handIdx){
   G.board.set(hk(q,r),rt);
+  G._anim={q,r,t:performance.now(),dur:160};
   const colours=rt.curves.map(c=>CN[c.c]).filter((v,i,a)=>a.indexOf(v)===i).join(', ');
   G.log.push({turn:G.log.length+1,player:G.cur,col:G.players[G.cur].col,tileN:rt.n,q,r,colours,phase:G.turnPhase});
   addLogEntry(G.log[G.log.length-1]);
@@ -973,7 +1003,7 @@ function buildResultsList(){
 
     const name=document.createElement('div');
     name.className='result-name';
-    name.textContent=`P${pl.i+1} ${CN[pl.col]}${isWinner?' 👑':''}`;
+    name.textContent=`${G.players[pl.i]?.name||'P'+(pl.i+1)} (${CN[pl.col]})${isWinner?' 👑':''}`;
 
     const right=document.createElement('div');
     right.style.textAlign='right';
@@ -1003,8 +1033,6 @@ function buildResultsList(){
   });
 
   submitLeaderboardScore();
-  // Switch to end screen (called from modal button)
-  document.getElementById('game').style.display='none';
   document.getElementById('endscreen').style.display='flex';
 }
 
@@ -1129,7 +1157,7 @@ function drawBoard(){
   for(const[k,t]of G.board){
     const{q,r}=fk(k);const{x,y}=h2p(q,r);
     if(x<-HS*2||x>bw+HS*2||y<-HS*2||y>bh+HS*2)continue;
-    drawHex(ctx,x,y,t,HS);
+    if(G._anim&&G._anim.q===q&&G._anim.r===r){const prog=Math.min(1,(performance.now()-G._anim.t)/160);ctx.save();ctx.translate(x,y);ctx.scale(0.3+0.7*prog,0.3+0.7*prog);drawHex(ctx,0,0,t,HS);ctx.restore();if(prog<1)requestAnimationFrame(()=>drawBoard());else G._anim=null;}else drawHex(ctx,x,y,t,HS);
   }
 
   // Hover preview
@@ -1204,15 +1232,16 @@ function renderPanels(){
   const forced=getForcedSpaces();
   const isMobile=window.innerWidth<=600;
   // Tile canvas size: bigger on desktop
-  const tSz=isMobile?72:90;
-  const hexSz=isMobile?27:34;
+  const tSz=isMobile?62:90;
+  const hexSz=isMobile?23:34;
 
   G.players.forEach((pl,p)=>{
     const isAct=p===G.cur;
     const pp=document.createElement('div');pp.className='pp'+(isAct?' act':'');
+    if(isAct)pp.style.setProperty('--act-col',CLR[G.players[p].col]||'#3db87a');
     const hdr=document.createElement('div');hdr.className='pp-hdr';
     const dot=document.createElement('div');dot.className='pp-dot';dot.style.background=CLR[pl.col];
-    const nm=document.createElement('span');nm.className='pp-name';nm.textContent=`P${p+1} ${CN[pl.col]}`;
+    const nm=document.createElement('span');nm.className='pp-name';nm.textContent=pl.name||`P${p+1} ${CN[pl.col]}`;
     const sc=document.createElement('span');sc.className='pp-score';sc.style.color=CLR[pl.col];
     const bs=G.board.size?bestScore(pl.col):{score:0,line:0,loop:0};
     sc.textContent=bs.score+(bs.loop>0?' pts ⟳':' pts');
@@ -1235,9 +1264,12 @@ function renderPanels(){
       w.appendChild(c);
       if(fits){const b=document.createElement('span');b.className='badge';b.textContent='!';w.appendChild(b);}
       // In MP mode, only allow interaction with your own tiles on your turn
-      const canInteract=isAct&&(!MP.enabled||MP.myIndex===G.cur);
+      const isHumanTurn=AI.enabled?(p===AI.humanIndex&&G.cur===AI.humanIndex):true;
+      const isMPTurn=MP.enabled?MP.myIndex===G.cur:true;
+      const canInteract=isAct&&isHumanTurn&&isMPTurn;
       if(canInteract)w.addEventListener('click',()=>{if(G.sel===i&&G.selP===p)G.rot=(G.rot+1)%6;else{G.sel=i;G.selP=p;G.rot=0;}render();});
-      if(MP.enabled&&MP.myIndex!==G.cur)w.classList.add('inact'); // dim all tiles when not your turn
+      if(MP.enabled&&MP.myIndex!==G.cur)w.classList.add('inact');
+      if(AI.enabled&&p!==AI.humanIndex)w.classList.add('inact');
       grid.appendChild(w);
     });
     pp.append(hdr,grid);cont.appendChild(pp);
@@ -1277,6 +1309,18 @@ document.getElementById('bexit').addEventListener('click',()=>{
   document.getElementById('waiting-panel').style.display='none';
   document.getElementById('lobby-msg').textContent='';
   document.getElementById('lobby').style.display='flex';
+});
+document.getElementById('btn-save-board').addEventListener('click',()=>{
+  if(G.board.size===0)return;
+  const margin=60,hs=Math.max(HS,50);
+  let mnX=Infinity,mxX=-Infinity,mnY=Infinity,mxY=-Infinity;
+  for(const k of G.board.keys()){const{q,r}=fk(k);const x=hs*Math.sqrt(3)*(q+r/2),y=hs*1.5*r;mnX=Math.min(mnX,x);mxX=Math.max(mxX,x);mnY=Math.min(mnY,y);mxY=Math.max(mxY,y);}
+  const cv=document.createElement('canvas');cv.width=Math.ceil(mxX-mnX+hs*3+margin*2);cv.height=Math.ceil(mxY-mnY+hs*3+margin*2);
+  const ct=cv.getContext('2d');ct.fillStyle='#888';ct.fillRect(0,0,cv.width,cv.height);
+  const ox=margin+hs*1.5-mnX,oy=margin+hs*1.5-mnY;
+  for(const[k,tile]of G.board){const{q,r}=fk(k);drawHex(ct,ox+hs*Math.sqrt(3)*(q+r/2),oy+hs*1.5*r,tile,hs);}
+  ct.fillStyle='rgba(255,255,255,0.3)';ct.font='bold 13px system-ui';ct.textAlign='right';ct.fillText('⬡ TANTRIX',cv.width-8,cv.height-8);
+  const a=document.createElement('a');a.download=`tantrix-${new Date().toISOString().slice(0,10)}.png`;a.href=cv.toDataURL('image/png');a.click();
 });
 document.getElementById('btn-home').addEventListener('click',()=>{
   if(MP.enabled&&MP.socket){MP.socket.disconnect();MP.socket=null;}
@@ -1355,6 +1399,25 @@ function submitLeaderboardScore(){
     colour:myPlayer.col,score:bs.score,
     date:new Date().toISOString()
   });
+}
+
+// ── Your turn badge ───────────────────────────────────────────────────────────
+function showYourTurnBadge(title='YOUR TURN', sub='Make your move'){
+  const badge=document.getElementById('your-turn-badge');
+  const col=CLR[G.players[G.cur]?.col]||'#3db87a';
+  badge.style.setProperty('--ytb-col',col);
+  document.getElementById('ytb-title').textContent=title;
+  document.getElementById('ytb-sub').textContent=sub;
+  // Reset animation
+  badge.className='';
+  void badge.offsetWidth; // reflow
+  badge.className='in';
+  // Auto-dismiss after 1.4s
+  clearTimeout(badge._t);
+  badge._t=setTimeout(()=>{
+    badge.className='out';
+    badge.addEventListener('animationend',()=>{badge.className='';},{once:true});
+  },1400);
 }
 
 window.addEventListener('resize',()=>{resizeBoard();render();});
@@ -1894,11 +1957,11 @@ function applyRemoteState(gs){
   if(G.phase==='play'){
     const isMyTurn=!MP.enabled||(MP.myIndex===G.cur);
     if(G.turnPhase==='forced1'||G.turnPhase==='forced2'){
-      if(isMyTurn)setMsg(`Your turn — fill the forced space (orange) first`,'warn');
+      if(isMyTurn){setMsg(`Your turn — fill the forced space (orange) first`,'warn');showYourTurnBadge('Forced move!','Fill the orange space first');}  
       else setMsg(`Waiting for P${G.cur+1} ${CN[G.players[G.cur].col]} to fill a forced space…`,'info');
     } else {
-      if(isMyTurn)setMsg(`Your turn — make your free move`,'info');
-      else setMsg(`Waiting for P${G.cur+1} ${CN[G.players[G.cur].col]} to play…`,'info');
+      if(isMyTurn){setMsg(`Your turn — make your free move`,'info');showYourTurnBadge();}
+      else setMsg(`Waiting for ${G.players[G.cur]?.name||'P'+(G.cur+1)} (${CN[G.players[G.cur].col]}) to play…`,'info');
     }
   }
   updateModeLabel();updateUI();render();
