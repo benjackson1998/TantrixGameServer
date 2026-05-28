@@ -371,7 +371,7 @@ body{font-family:system-ui,sans-serif;}
 
   </div>
   <a href="https://www.tantrix.com/english/TantrixGameRules.html" target="_blank" rel="noopener" style="font-size:15px;color:#333;text-decoration:none;margin-top:4px;font-weight:500;">📖 Official Tantrix Rules</a>
-  <span style="font-size:11px;color:#aaa;margin-top:2px;">v1.5.1</span>
+  <span style="font-size:11px;color:#aaa;margin-top:2px;">v1.5.2</span>
 </div>
 
 <div id="setup">
@@ -1639,29 +1639,45 @@ function bestGreedyMove(moves) {
 // Hard: lookahead — try AI move, then estimate best human response, minimise human score
 function bestLookaheadMove(moves) {
   const aiCol = G.players[G.cur].col;
-  // Find human player colour
-  const humanPlayer = G.players.find(p => !p.isAI);
-  const humanCol = humanPlayer ? humanPlayer.col : null;
+
+  // Find the current leader among all OTHER players (the one to beat)
+  // This makes each AI compete against whoever is winning — not just the human.
+  // Feels like playing against real opponents who all want to win.
+  const rivals = G.players.filter((p, i) => i !== G.cur);
+  let leadRival = null, leadScore = -1;
+  for (const r of rivals) {
+    const sc = scoreForColour(r.col);
+    if (sc > leadScore) { leadScore = sc; leadRival = r; }
+  }
+  // If no one has scored yet, default to targeting the human
+  if (!leadRival || leadScore === 0) {
+    leadRival = G.players.find(p => !p.isAI) || rivals[0];
+  }
+  const rivalCol = leadRival ? leadRival.col : null;
 
   let best = null, bestSc = -Infinity;
 
   for (const m of moves) {
     G.board.set(hk(m.q, m.r), m.tile);
     const aiScore = scoreForColour(aiCol);
-    // Estimate human best response (greedy)
-    let humanBest = 0;
-    if (humanCol) {
-      const humanMoves = getAiMovesForColour(humanCol);
-      for (const hm of humanMoves.slice(0, 15)) { // limit for performance
+
+    // Estimate the leader's best response (greedy sample)
+    let rivalBest = 0;
+    if (rivalCol) {
+      const rivalMoves = getAiMovesForColour(rivalCol);
+      for (const hm of rivalMoves.slice(0, 15)) {
         G.board.set(hk(hm.q, hm.r), hm.tile);
-        const hsc = scoreForColour(humanCol);
+        const rsc = scoreForColour(rivalCol);
         G.board.delete(hk(hm.q, hm.r));
-        if (hsc > humanBest) humanBest = hsc;
+        if (rsc > rivalBest) rivalBest = rsc;
       }
     }
     G.board.delete(hk(m.q, m.r));
-    // Maximise (our score - human score)
-    const combined = aiScore * 2 - humanBest;
+
+    // Maximise (own score × 2 - leader's score)
+    // The ×2 weight on own score means the AI still plays positively
+    // rather than purely blocking
+    const combined = aiScore * 2 - rivalBest;
     if (combined > bestSc) { bestSc = combined; best = m; }
   }
   return best || moves[0];
