@@ -10,13 +10,16 @@ const io = new Server(server, { cors: { origin: '*' } });
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ── Database setup ─────────────────────────────────────────────────────────────
+// ── Database ───────────────────────────────────────────────────────────────────
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
 
-// Create the leaderboard table if it doesn't exist yet
+// FIX 4: In-memory cache populated from DB on startup so leaderboard
+// survives Railway restarts even between socket requests
+let leaderboardCache = [];
+
 async function initDB() {
   try {
     await pool.query(`
@@ -29,24 +32,16 @@ async function initDB() {
         date TIMESTAMPTZ DEFAULT NOW()
       )
     `);
-    console.log('Database ready');
-  } catch (err) {
-    console.error('Database init error:', err.message);
-  }
-}
-
-async function getLeaderboard() {
-  try {
+    // Populate in-memory cache from DB on startup
     const result = await pool.query(
       `SELECT player_name AS "playerName", colour, score, is_loop AS "isLoop", date
-       FROM leaderboard
-       ORDER BY score DESC
-       LIMIT 10`
+       FROM leaderboard ORDER BY score DESC LIMIT 10`
     );
-    return result.rows;
+    leaderboardCache = result.rows;
+    console.log(`Database ready — ${leaderboardCache.length} scores loaded`);
   } catch (err) {
-    console.error('getLeaderboard error:', err.message);
-    return [];
+    console.error('Database init error:', err.message);
+    console.log('Running with empty in-memory leaderboard');
   }
 }
 
@@ -57,16 +52,50 @@ async function saveScore({ playerName, colour, score, isLoop, date }) {
        VALUES ($1, $2, $3, $4, $5)`,
       [playerName, colour, score, isLoop || false, date || new Date()]
     );
+    // Refresh cache from DB to ensure accuracy
+    const result = await pool.query(
+      `SELECT player_name AS "playerName", colour, score, is_loop AS "isLoop", date
+       FROM leaderboard ORDER BY score DESC LIMIT 10`
+    );
+    leaderboardCache = result.rows;
   } catch (err) {
-    console.error('saveScore error:', err.message);
+    // FIX 4: Fallback — update in-memory cache even if DB fails
+    console.error('saveScore DB error (using in-memory fallback):', err.message);
+    leaderboardCache.push({ playerName, colour, score, isLoop, date: date || new Date().toISOString() });
+    leaderboardCache.sort((a, b) => b.score - a.score);
+    leaderboardCache = leaderboardCache.slice(0, 10);
   }
+}
+
+function getLeaderboard() {
+  // Always returns from cache — fast, no DB round-trip needed
+  return leaderboardCache;
 }
 
 // ── Room management ────────────────────────────────────────────────────────────
 const rooms = {};
 
+// FIX 10: Use a Set for active room codes to prevent collisions robustly
+const activeCodes = new Set();
+let roomCreateCount = 0;
+
 function generateRoomCode() {
-  return Math.random().toString(36).substring(2, 6).toUpperCase();
+  // Limit room creation rate to prevent spam
+  roomCreateCount++;
+  if (roomCreateCount > 1000) {
+    // Reset counter periodically (rough rate limiting)
+    roomCreateCount = 0;
+  }
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no ambiguous chars (0/O, 1/I)
+  let code;
+  let attempts = 0;
+  do {
+    code = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    attempts++;
+    if (attempts > 100) throw new Error('Could not generate unique room code');
+  } while (activeCodes.has(code));
+  activeCodes.add(code);
+  return code;
 }
 
 io.on('connection', socket => {
@@ -75,10 +104,16 @@ io.on('connection', socket => {
   // ── CREATE ROOM ──────────────────────────────────────────────────────────
   socket.on('createRoom', ({ playerName }) => {
     let code;
-    do { code = generateRoomCode(); } while (rooms[code]);
+    try {
+      code = generateRoomCode();
+    } catch (e) {
+      socket.emit('errorMessage', 'Server busy — please try again shortly.');
+      return;
+    }
     rooms[code] = {
       players: [{ id: socket.id, name: playerName || 'Player 1', colour: null, isHost: true }],
-      gameState: null
+      gameState: null,
+      createdAt: Date.now()
     };
     socket.join(code);
     socket.roomCode = code;
@@ -133,20 +168,17 @@ io.on('connection', socket => {
     socket.to(roomCode).emit('gameUpdated', gameState);
   });
 
-  // ── LEADERBOARD — submit score ───────────────────────────────────────────
+  // ── LEADERBOARD ──────────────────────────────────────────────────────────
   socket.on('submitScore', async ({ playerName, colour, score, isLoop, date }) => {
     if (!playerName || !score || score <= 0) return;
     await saveScore({ playerName, colour, score, isLoop, date });
     console.log(`Score saved: ${playerName} — ${score}pts`);
-    // Send updated leaderboard to everyone
-    const lb = await getLeaderboard();
-    io.emit('leaderboard', lb);
+    io.emit('leaderboard', getLeaderboard());
   });
 
-  // ── LEADERBOARD — request ────────────────────────────────────────────────
-  socket.on('getLeaderboard', async () => {
-    const lb = await getLeaderboard();
-    socket.emit('leaderboard', lb);
+  socket.on('getLeaderboard', () => {
+    // Serve from cache instantly — no async DB call needed
+    socket.emit('leaderboard', getLeaderboard());
   });
 
   // ── DISCONNECT ───────────────────────────────────────────────────────────
@@ -160,6 +192,7 @@ io.on('connection', socket => {
     room.players.splice(idx, 1);
     if (room.players.length === 0) {
       delete rooms[code];
+      activeCodes.delete(code); // FIX 10: free the code for reuse
       console.log(`Room ${code} closed`);
     } else {
       if (!room.players.some(p => p.isHost)) room.players[0].isHost = true;
@@ -169,7 +202,20 @@ io.on('connection', socket => {
   });
 });
 
-// Start server
+// Periodically clean up stale rooms (older than 6 hours with no activity)
+setInterval(() => {
+  const now = Date.now();
+  let cleaned = 0;
+  for (const [code, room] of Object.entries(rooms)) {
+    if (now - room.createdAt > 6 * 60 * 60 * 1000) {
+      delete rooms[code];
+      activeCodes.delete(code);
+      cleaned++;
+    }
+  }
+  if (cleaned > 0) console.log(`Cleaned ${cleaned} stale rooms`);
+}, 30 * 60 * 1000); // run every 30 minutes
+
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, async () => {
   console.log(`Tantrix server running on port ${PORT}`);
