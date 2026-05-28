@@ -371,7 +371,7 @@ body{font-family:system-ui,sans-serif;}
 
   </div>
   <a href="https://www.tantrix.com/english/TantrixGameRules.html" target="_blank" rel="noopener" style="font-size:15px;color:#333;text-decoration:none;margin-top:4px;font-weight:500;">📖 Official Tantrix Rules</a>
-  <span style="font-size:11px;color:#aaa;margin-top:2px;">v1.5.3</span>
+  <span style="font-size:11px;color:#aaa;margin-top:2px;">v1.6</span>
 </div>
 
 <div id="setup">
@@ -593,7 +593,12 @@ function edgesToCurves(es){
   for(let i=0;i<6;i++){if(used[i])continue;for(let j=i+1;j<6;j++){if(!used[j]&&es[j]===es[i]){c.push({c:es[i],e1:i,e2:j});used[i]=used[j]=true;break;}}}return c;
 }
 function rotateEdges(es,n){n=((n%6)+6)%6;return n?es.slice(6-n)+es.slice(0,6-n):es;}
-const TILES=EDGE_STRINGS.map((es,i)=>({n:i+1,edges:es,curves:edgesToCurves(es)}));
+const TILES=EDGE_STRINGS.map((es,i)=>{
+  const curves=edgesToCurves(es);
+  const geom=curves.map(cv=>({cv,g:ctrlPt(0,0,cv.e1,cv.e2,1),pri:curvePriority(cv.e1,cv.e2)}));
+  geom.sort((a,b)=>a.pri-b.pri);
+  return{n:i+1,edges:es,curves,_geom:geom};
+});
 const DIRS=[[0,-1],[1,-1],[1,0],[0,1],[-1,1],[-1,0]];
 const hk=(q,r)=>`${q},${r}`;
 const fk=k=>{const[q,r]=k.split(',').map(Number);return{q,r};};
@@ -658,8 +663,16 @@ function drawHex(ct,cx,cy,tile,sz,alpha=1){
   hexPath(ct,cx,cy,sz);ct.fillStyle='#0a0a0a';ct.fill();
   hexPath(ct,cx,cy,sz);ct.clip();
   const lw=sz*0.40;
-  const geoms=tile.curves.map(cv=>{const g=ctrlPt(cx,cy,cv.e1,cv.e2,sz);return{cv,g,pri:curvePriority(cv.e1,cv.e2)};});
-  const sorted=[...geoms].sort((a,b)=>a.pri-b.pri);
+  let sorted;
+  if(tile._geom){
+    sorted=tile._geom.map(({cv,g,pri})=>{
+      const sc=g=>({...g,x:cx+g.x*sz,y:cy+g.y*sz,p0:{x:cx+g.p0.x*sz,y:cy+g.p0.y*sz},p1:{x:cx+g.p1.x*sz,y:cy+g.p1.y*sz}});
+      return{cv,g:sc(g),pri};
+    });
+  }else{
+    const geoms=tile.curves.map(cv=>{const g=ctrlPt(cx,cy,cv.e1,cv.e2,sz);return{cv,g,pri:curvePriority(cv.e1,cv.e2)};});
+    sorted=[...geoms].sort((a,b)=>a.pri-b.pri);
+  }
   const crossings=sorted.map(()=>[]);const halfGap=0.055;
   for(let i=0;i<sorted.length;i++)
     for(let j=i+1;j<sorted.length;j++){
@@ -750,12 +763,12 @@ document.getElementById('start-btn').addEventListener('click',()=>{
 });
 
 // ── Game ──────────────────────────────────────────────────────────────────────
-const G={board:new Map(),bag:[],players:[],cur:0,phase:'idle',turnPhase:'free',sel:null,selP:-1,rot:0,_lastHoverQ:null,_lastHoverR:null,log:[],mode:'local',_anim:null};
+const G={board:new Map(),bag:[],players:[],cur:0,phase:'idle',turnPhase:'free',sel:null,selP:-1,rot:0,_lastHoverQ:null,_lastHoverR:null,log:[],mode:'local',_anim:null,_ctrlDirty:true,_ctrlCache:null,_forcedDirty:true,_forcedCache:null};
 function startGame(playerDefs){
   const bag=TILES.map(t=>({...t}));shuffle(bag);
   G.bag=bag;G.board=new Map();
   G.players=playerDefs.map(pd=>({col:pd.col,hand:[],isAI:pd.isAI||false}));
-  G.phase='play';G.sel=null;G.selP=-1;G.rot=0;G.log=[];
+  G.phase='play';G.sel=null;G.selP=-1;G.rot=0;G.log=[];G._ctrlDirty=true;G._forcedDirty=true;G._ctrlCache=null;G._forcedCache=null;
   updateModeLabel();
   updateLeaderboardBtn();
   for(let p=0;p<G.players.length;p++)for(let i=0;i<6;i++)drawT(p);
@@ -774,42 +787,44 @@ function updateModeLabel(){
   const tips={'ai-easy':'Random','ai-medium':'Greedy','ai-hard':'Lookahead'};
   el.title=tips[G.mode]||'';
 }
-function rotateTile(t,n){const edges=rotateEdges(t.edges,n);return{...t,edges,curves:edgesToCurves(edges)};}
+function rotateTile(t,n){
+  const edges=rotateEdges(t.edges,n);
+  const curves=edgesToCurves(edges);
+  const geom=curves.map(cv=>({cv,g:ctrlPt(0,0,cv.e1,cv.e2,1),pri:curvePriority(cv.e1,cv.e2)}));
+  geom.sort((a,b)=>a.pri-b.pri);
+  return{...t,edges,curves,_geom:geom};
+}
 function occCount(q,r,aq,ar){return nbrs(q,r).filter(({q:nq,r:nr})=>G.board.has(hk(nq,nr))||(aq!==undefined&&nq===aq&&nr===ar)).length;}
 function isForced(q,r){return!G.board.has(hk(q,r))&&occCount(q,r)>=3;}
-function getForcedSpaces(){
+function _computeForcedSpaces(){
   const cands=new Set();
   for(const k of G.board.keys()){const{q,r}=fk(k);for(const{q:nq,r:nr}of nbrs(q,r))if(!G.board.has(hk(nq,nr)))cands.add(hk(nq,nr));}
   return[...cands].map(fk).filter(({q,r})=>isForced(q,r));
 }
 function bagEmpty(){return G.bag.length===0;}
 
-function getControlledSides(){
+function _computeControlledSides(){
   if(bagEmpty())return new Set();
   const forced=getForcedSpaces();
-  const forcedSet=new Set(forced.map(({q,r})=>hk(q,r)));
   const controlled=new Set();
   for(const{q:fq,r:fr}of forced){
-    // For each open direction (empty neighbour), cast a ray outward.
-    // ALL empty hexes along that ray are controlled sides — until hitting an occupied tile.
     for(let d=0;d<6;d++){
       const[dq,dr]=DIRS[d];
-      // Check if this direction from forced space is open (empty)
-      const adjK=hk(fq+dq,fr+dr);
-      if(G.board.has(adjK))continue; // occupied side — not a controlled direction
-      // Cast ray in direction d from the forced space
+      if(G.board.has(hk(fq+dq,fr+dr)))continue;
       let cq=fq+dq,cr=fr+dr;
       while(true){
         const k=hk(cq,cr);
-        if(G.board.has(k))break; // hit an occupied tile — stop ray
-        controlled.add(k);
-        cq+=dq;cr+=dr;
-        // Safety: stop if way off board (no tiles can be that far)
+        if(G.board.has(k))break;
+        controlled.add(k);cq+=dq;cr+=dr;
         if(Math.abs(cq)>30||Math.abs(cr)>30)break;
       }
     }
   }
   return controlled;
+}
+function getControlledSides(){
+  if(G._ctrlDirty||!G._ctrlCache){G._ctrlCache=_computeControlledSides();G._ctrlDirty=false;}
+  return G._ctrlCache;
 }
 // Forced spaces themselves (can always be filled, controlled-side rule doesn't apply to them)
 function getForcedSet(){
@@ -849,9 +864,7 @@ function checkRestrictions(q,r,tile){
     if(occCount(nq,nr,q,r)>=4)return'Would create a 4-sided space';
   }
 
-  // Rule 1: no unfillable forced spaces.
-  // Only check direct neighbours of (q,r) — placing at (q,r) only affects
-  // the occupied-neighbour count of its direct neighbours, not 2nd-ring spaces.
+  // Rule 1: check all empty neighbours of (q,r) for unfillable scenarios
   for(const{q:nq,r:nr}of nbrs(q,r)){
     if(!G.board.has(hk(nq,nr))&&wouldBeUnfillable(nq,nr))
       return'Would create an unfillable forced space';
@@ -909,6 +922,10 @@ function canFillAnyForced(){
   for(const{q,r}of forced)for(const t of hand)for(let rot=0;rot<6;rot++)if(canPlace(q,r,rotateTile(t,rot)))return true;
   return false;
 }
+function getForcedSpaces(){
+  if(G._forcedDirty||!G._forcedCache){G._forcedCache=_computeForcedSpaces();G._forcedDirty=false;}
+  return G._forcedCache;
+}
 function _startTurnCore(){
   G.sel=null;G.selP=-1;G.rot=0;
   // Safety net: catch game over if somehow missed in endTurn
@@ -931,6 +948,7 @@ function updateUI(){
 }
 function placeTile(q,r,rt,handIdx){
   G.board.set(hk(q,r),rt);
+  G._ctrlDirty=true;G._forcedDirty=true;
   G._anim={q,r,t:performance.now(),dur:160};
   const colours=rt.curves.map(c=>CN[c.c]).filter((v,i,a)=>a.indexOf(v)===i).join(', ');
   G.log.push({turn:G.log.length+1,player:G.cur,col:G.players[G.cur].col,tileN:rt.n,q,r,colours,phase:G.turnPhase});
@@ -979,8 +997,8 @@ function endTurn(){
     next=(next+1)%n;
     skipped++;
   }
-  // If everyone has empty hands (safety check)
-  if(G.players[next].hand.length===0){endGame();return;}
+  // Hard exit: if full cycle with no valid player found, end game
+  if(skipped>=n||G.players[next].hand.length===0){endGame();return;}
   G.cur=next;
   startTurn();
 }
@@ -1550,9 +1568,9 @@ function doAiMove() {
 
   const forced = getForcedSpaces();
   const mustFill = (G.turnPhase === 'forced1' || G.turnPhase === 'forced2') && forced.length > 0;
-
-  // Get all valid moves for AI
-  const moves = getAiMoves(mustFill ? forced : null);
+  // Sort forced spaces by constraint: most occupied neighbours first
+  const sortedForced = mustFill ? [...forced].sort((a,b)=>occCount(b.q,b.r)-occCount(a.q,a.r)) : null;
+  const moves = getAiMoves(sortedForced);
 
   if (moves.length === 0) {
     // No valid move — end turn
@@ -1609,424 +1627,26 @@ function doAiMove() {
 }
 
 // Get all valid moves for AI (optionally restricted to forced spaces)
-function getAiMoves(forcedSpaces) {
-  const hand = G.players[G.cur].hand;
-  const positions = forcedSpaces || slots();
-  const moves = [];
-  for (const { q, r } of positions) {
-    for (let ti = 0; ti < hand.length; ti++) {
-      for (let rot = 0; rot < 6; rot++) {
-        const rt = rotateTile(hand[ti], rot);
-        if (forcedSpaces ? canPlace(q, r, rt) : canPlaceFree(q, r, rt)) {
-          moves.push({ q, r, tileIdx: ti, rot, tile: rt });
-        }
+function getMovesForPlayer(playerIdx,forcedSpaces=null){
+  const hand=G.players[playerIdx]?.hand;
+  if(!hand)return[];
+  const positions=forcedSpaces||slots();
+  const moves=[];
+  for(const{q,r}of positions){
+    for(let ti=0;ti<hand.length;ti++){
+      for(let rot=0;rot<6;rot++){
+        const rt=rotateTile(hand[ti],rot);
+        const valid=forcedSpaces?canPlace(q,r,rt):canPlaceFree(q,r,rt);
+        if(valid)moves.push({q,r,tileIdx:ti,rot,tile:rt});
       }
     }
   }
   return moves;
 }
-
-// Score board for a given colour
-function scoreForColour(col) {
-  return bestScore(col).score;
+function getAiMoves(forcedSpaces){return getMovesForPlayer(G.cur,forcedSpaces);}
+function getAiMovesForColour(col){
+  const pi=G.players.findIndex(p=>p.col===col);
+  return pi<0?[]:getMovesForPlayer(pi,null);
 }
 
-// Medium: greedy — pick move that maximises AI's own score
-function bestGreedyMove(moves) {
-  const col = G.players[G.cur].col;
-  let best = null, bestSc = -1;
-  // Medium: greedy + tiebreak by disrupting the current leader
-  const rivals=G.players.filter((_,i)=>i!==G.cur);
-  let topRival=null,topRivalSc=-1;
-  for(const r of rivals){const s=scoreForColour(r.col);if(s>topRivalSc){topRivalSc=s;topRival=r;}}
-  const rivalCol2=topRival?.col||null;
-  for (const m of moves) {
-    G.board.set(hk(m.q, m.r), m.tile);
-    const sc = scoreForColour(col);
-    // Tiebreak: prefer moves that don't help the current leader
-    const rivalSc=rivalCol2?scoreForColour(rivalCol2):0;
-    G.board.delete(hk(m.q, m.r));
-    const combined=sc*3-rivalSc; // weight own score heavily, small disruption bonus
-    if (combined > bestSc) { bestSc = combined; best = m; }
-  }
-  return best || moves[0];
-}
 
-// Hard: lookahead — try AI move, then estimate best human response, minimise human score
-function bestLookaheadMove(moves) {
-  const aiCol = G.players[G.cur].col;
-
-  // Find the current leader among all OTHER players (the one to beat)
-  // This makes each AI compete against whoever is winning — not just the human.
-  // Feels like playing against real opponents who all want to win.
-  const rivals = G.players.filter((p, i) => i !== G.cur);
-  let leadRival = null, leadScore = -1;
-  for (const r of rivals) {
-    const sc = scoreForColour(r.col);
-    if (sc > leadScore) { leadScore = sc; leadRival = r; }
-  }
-  // If no one has scored yet, default to targeting the human
-  if (!leadRival || leadScore === 0) {
-    leadRival = G.players.find(p => !p.isAI) || rivals[0];
-  }
-  const rivalCol = leadRival ? leadRival.col : null;
-
-  // Sort moves by immediate score first so best candidates are evaluated first
-  const sortedMoves=[...moves].sort((a,b)=>{
-    G.board.set(hk(b.q,b.r),b.tile);const sb=scoreForColour(aiCol);G.board.delete(hk(b.q,b.r));
-    G.board.set(hk(a.q,a.r),a.tile);const sa=scoreForColour(aiCol);G.board.delete(hk(a.q,a.r));
-    return sb-sa;
-  });
-  let best = null, bestSc = -Infinity;
-
-  for (const m of sortedMoves) {
-    G.board.set(hk(m.q, m.r), m.tile);
-    const aiScore = scoreForColour(aiCol);
-
-    // Estimate the leader's best response (greedy sample)
-    let rivalBest = 0;
-    if (rivalCol) {
-      const rivalMoves = getAiMovesForColour(rivalCol);
-      for (const hm of rivalMoves.slice(0, 25)) {
-        G.board.set(hk(hm.q, hm.r), hm.tile);
-        const rsc = scoreForColour(rivalCol);
-        G.board.delete(hk(hm.q, hm.r));
-        if (rsc > rivalBest) rivalBest = rsc;
-      }
-    }
-    G.board.delete(hk(m.q, m.r));
-
-    // Maximise (own score × 2 - leader's score)
-    // The ×2 weight on own score means the AI still plays positively
-    // rather than purely blocking
-    const combined = aiScore * 2 - rivalBest;
-    if (combined > bestSc) { bestSc = combined; best = m; }
-  }
-  return best || moves[0];
-}
-
-// Helper: get moves for a specific colour (for lookahead simulation)
-function getAiMovesForColour(col) {
-  // Find which player index has this colour
-  const pi = G.players.findIndex(p => p.col === col);
-  if (pi < 0) return [];
-  const hand = G.players[pi].hand;
-  const positions = slots();
-  const moves = [];
-  for (const { q, r } of positions) {
-    for (let ti = 0; ti < hand.length; ti++) {
-      for (let rot = 0; rot < 6; rot++) {
-        const rt = rotateTile(hand[ti], rot);
-        if (canPlaceFree(q, r, rt)) moves.push({ q, r, tileIdx: ti, rot, tile: rt });
-      }
-    }
-  }
-  return moves;
-}
-
-// ── Hook into startTurn to trigger AI ─────────────────────────────────
-function startTurn() {
-  _startTurnCore();
-  // Trigger AI if it's an AI player's turn
-  if (AI.enabled && G.phase === 'play' && G.players[G.cur]?.isAI) {
-    setMsg('Computer is thinking…', 'info');
-    updateUI(); render();
-    setTimeout(maybeDoAiTurn, 1200);
-  }
-}
-
-// AI turn blocking is handled inside the MP doClick wrapper below
-
-
-
-// ── Game log functions ────────────────────────────────────────────────────────
-function addLogEntry(entry){
-  const cont=document.getElementById('log-entries');
-  const empty=document.getElementById('log-empty');
-  if(empty)empty.remove();
-  const row=document.createElement('div');row.className='log-entry';
-  const dot=document.createElement('div');dot.className='log-dot';
-  dot.style.background=CLR[entry.col];
-  const turn=document.createElement('div');turn.className='log-turn';
-  turn.textContent=`#${entry.turn}`;
-  const txt=document.createElement('div');txt.className='log-text';
-  const phase=entry.phase==='forced1'||entry.phase==='forced2'?' (forced)':'';
-  txt.innerHTML=`<strong>P${entry.player+1} ${CN[entry.col]}</strong> placed tile ${entry.tileN}${phase}<br><span style="color:#666">${entry.colours} · (${entry.q},${entry.r})</span>`;
-  row.append(dot,turn,txt);
-  cont.appendChild(row);
-  cont.scrollTop=cont.scrollHeight;
-}
-
-document.getElementById('log-btn').addEventListener('click',()=>{
-  document.getElementById('help-panel').classList.remove('open');
-  document.getElementById('log-panel').classList.toggle('open');
-});
-document.getElementById('help-btn').addEventListener('click',()=>{
-  document.getElementById('log-panel').classList.remove('open');
-  document.getElementById('help-panel').classList.toggle('open');
-});
-document.getElementById('log-close').addEventListener('click',()=>{
-  document.getElementById('log-panel').classList.remove('open');
-});
-document.addEventListener('click',(e)=>{
-  const logPanel=document.getElementById('log-panel');
-  if(logPanel.classList.contains('open')&&!logPanel.contains(e.target)&&e.target.id!=='log-btn'){
-    logPanel.classList.remove('open');
-  }
-  const helpPanel=document.getElementById('help-panel');
-  if(helpPanel.classList.contains('open')&&!helpPanel.contains(e.target)&&e.target.id!=='help-btn'){
-    helpPanel.classList.remove('open');
-  }
-});
-
-// ══════════════════════════════════════════════════════════════════════
-// MULTIPLAYER — socket.io
-// ══════════════════════════════════════════════════════════════════════
-
-const MP={enabled:false,socket:null,roomCode:null,myIndex:-1,isHost:false,players:[],lobbyColour:null};
-
-// Show lobby on load (hide setup)
-document.getElementById('setup').style.display='none';
-document.getElementById('lobby').style.display='flex';
-
-// ── Local game ──────────────────────────────────────────────────────────
-document.getElementById('btn-local').addEventListener('click',()=>{
-  document.getElementById('lobby').style.display='none';
-  document.getElementById('setup').style.display='flex';
-  buildSetup();
-});
-
-// ── Online game ─────────────────────────────────────────────────────────
-document.getElementById('btn-online').addEventListener('click',()=>{
-  document.getElementById('online-panel').style.display='flex';
-  initSocket();
-});
-
-function buildLobbyCols(){
-  const cont=document.getElementById('lobby-color-opts');
-  cont.style.alignItems='center';
-  cont.innerHTML='';
-  ['R','Y','B','G'].forEach(c=>{
-    const selected=MP.lobbyColour===c;
-    const btn=document.createElement('div');
-    btn.style.cssText=`width:40px;height:40px;box-sizing:border-box;border-radius:50%;background:${CLR[c]};cursor:pointer;border:${selected?'3px solid #fff':'2px solid rgba(255,255,255,0.2)'};box-shadow:${selected?'0 0 0 2px rgba(255,255,255,0.5)':'none'};transform:${selected?'scale(1)':'scale(0.78)'};transition:all 0.15s;flex-shrink:0;`;
-    btn.addEventListener('click',()=>{MP.lobbyColour=c;buildLobbyCols();});
-    cont.appendChild(btn);
-  });
-}
-
-function lobbyMsg(t,col='#cc8833'){const el=document.getElementById('lobby-msg');el.textContent=t;el.style.color=col;}
-
-function initSocket(){
-  if(MP.socket)return;
-  MP.socket=io();
-  MP.socket.on('connect',()=>lobbyMsg('Connected','#3db87a'));
-  MP.socket.on('connect_error',()=>lobbyMsg('Cannot reach server'));
-
-  MP.socket.on('roomCreated',({roomCode,players,yourIndex})=>{
-    MP.roomCode=roomCode;MP.myIndex=yourIndex;MP.isHost=true;MP.players=players;
-    lobbyMsg('');  // clear any error message
-    showWaiting();
-  });
-  MP.socket.on('joinedRoom',({roomCode,players,yourIndex})=>{
-    MP.roomCode=roomCode;MP.myIndex=yourIndex;MP.isHost=false;MP.players=players;
-    lobbyMsg('');  // clear any error message
-    showWaiting();
-  });
-  MP.socket.on('playersUpdated',(players)=>{
-    MP.players=players;renderWaiting();
-    document.getElementById('btn-start-online').style.display=(MP.isHost&&players.length>=2)?'inline-block':'none';
-  });
-  MP.socket.on('playerLeft',({players,leftName})=>{
-    MP.players=players;renderWaiting();lobbyMsg(leftName+' left the room');
-  });
-  MP.socket.on('gameStarted',({gameState,players})=>{
-    MP.players=players;MP.enabled=true;
-    G.mode='online';
-    document.getElementById('lobby').style.display='none';
-    document.getElementById('game').style.display='flex';
-    applyRemoteState(gameState);
-    setTimeout(resizeBoard,50);
-  });
-  MP.socket.on('gameUpdated',(gs)=>applyRemoteState(gs));
-  MP.socket.on('errorMessage',(m)=>lobbyMsg(m));
-  MP.socket.on('leaderboard',(entries)=>renderLeaderboard(entries));
-}
-
-function showWaiting(){
-  document.getElementById('online-panel').style.display='none';
-  document.getElementById('waiting-panel').style.display='flex';
-  document.getElementById('room-code-display').textContent=MP.roomCode;
-  document.getElementById('btn-start-online').style.display='none';
-  // Show scheme picker only for host
-  const schemeRow=document.getElementById('waiting-scheme-row');
-  if(schemeRow)schemeRow.style.display=MP.isHost?'flex':'none';
-  renderWaiting();
-  buildWaitingColours();
-  renderWaitingSwatches();
-}
-
-function renderWaitingSwatches(){
-  const cont=document.getElementById('waiting-scheme-swatches');
-  if(!cont)return;
-  cont.innerHTML='';
-  const scheme=SCHEMES[activeScheme];
-  Object.entries(scheme.cols).forEach(([k,{hex,label}])=>{
-    const item=document.createElement('div');item.style.cssText='display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;';
-    const dot=document.createElement('div');dot.style.cssText=`width:28px;height:28px;border-radius:50%;background:${hex};border:2px solid rgba(255,255,255,0.15);`;
-    const lbl=document.createElement('div');lbl.style.cssText='font-size:10px;color:#fff;text-align:center;';lbl.textContent=label;
-    item.append(dot,lbl);cont.appendChild(item);
-  });
-}
-
-function buildWaitingColours(){
-  const cont=document.getElementById('waiting-color-opts');
-  if(!cont)return;
-  cont.innerHTML='';
-  const takenByOthers=new Set(MP.players.filter((_,i)=>i!==MP.myIndex).map(p=>p.colour).filter(Boolean));
-  ['R','Y','B','G'].forEach(c=>{
-    const taken=takenByOthers.has(c);
-    const selected=MP.lobbyColour===c;
-    const btn=document.createElement('div');
-    btn.style.cssText=`width:42px;height:42px;box-sizing:border-box;border-radius:50%;background:${CLR[c]};cursor:${taken?'not-allowed':'pointer'};opacity:${taken?'0.3':'1'};border:${selected?'3px solid #fff':'2px solid rgba(255,255,255,0.15)'};box-shadow:${selected?'0 0 0 2px rgba(255,255,255,0.5)':'none'};transform:${selected?'scale(1)':'scale(0.76)'};transition:all 0.15s;flex-shrink:0;`;
-    if(!taken){
-      btn.addEventListener('click',()=>{
-        MP.lobbyColour=c;
-        // Tell server our colour choice
-        if(MP.socket&&MP.roomCode){
-          MP.socket.emit('chooseColour',{roomCode:MP.roomCode,colour:c});
-        }
-        document.getElementById('waiting-colour-msg').textContent='';
-        buildWaitingColours();
-        // Show start button for host once colour chosen
-        if(MP.isHost&&MP.players.length>=2&&MP.lobbyColour){
-          document.getElementById('btn-start-online').style.display='inline-block';
-        }
-      });
-    }
-    cont.appendChild(btn);
-  });
-}
-function renderWaiting(){
-  const cont=document.getElementById('waiting-players');cont.innerHTML='';
-  MP.players.forEach((p,i)=>{
-    const row=document.createElement('div');row.className='wp-row';
-    const dot=document.createElement('div');dot.className='wp-dot';
-    dot.style.background=p.colour?CLR[p.colour]:'#444';
-    dot.title=p.colour?CN[p.colour]:'No colour yet';
-    const nm=document.createElement('span');
-    const colLabel=p.colour?` — ${CN[p.colour]}`:'';
-    nm.textContent=p.name+(p.isHost?' (Host)':'')+(i===MP.myIndex?' (you)':'')+colLabel;
-    row.append(dot,nm);cont.appendChild(row);
-  });
-  // Rebuild colour picker to reflect what others have taken
-  buildWaitingColours();
-  // Update start button visibility
-  const canStart=MP.isHost&&MP.players.length>=2&&MP.players.every(p=>p.colour)&&MP.lobbyColour;
-  const startBtn=document.getElementById('btn-start-online');
-  if(startBtn)startBtn.style.display=canStart?'inline-block':'none';
-}
-
-document.getElementById('btn-create-room').addEventListener('click',()=>{
-  const name=document.getElementById('inp-name').value.trim()||'Player 1';
-  if(!name.trim()){lobbyMsg('Please enter your name first');return;}
-  MP.lobbyName=name;
-  // No colour yet — will be chosen in waiting room
-  MP.socket.emit('createRoom',{playerName:name,colour:null});
-});
-
-// btn-join-room removed — join input is always visible
-
-document.getElementById('btn-confirm-join').addEventListener('click',()=>{
-  const name=document.getElementById('inp-name').value.trim()||'Player';
-  if(!name.trim()){lobbyMsg('Please enter your name first');return;}
-  const code=document.getElementById('inp-room-code').value.trim().toUpperCase();
-  if(code.length!==4){lobbyMsg('Enter the 4-letter room code');return;}
-  MP.lobbyName=name;
-  MP.socket.emit('joinRoom',{roomCode:code,playerName:name,colour:null});
-});
-
-document.getElementById('btn-start-online').addEventListener('click',()=>{
-  if(!MP.isHost)return;
-  if(!MP.lobbyColour){document.getElementById('waiting-colour-msg').textContent='Please pick your colour first';return;}
-  const uncoloured=MP.players.filter(p=>!p.colour);
-  if(uncoloured.length>0){document.getElementById('waiting-colour-msg').textContent='Waiting for all players to pick a colour';return;}
-  const playerDefs=MP.players.map(p=>({col:p.colour}));
-  startGame(playerDefs);
-  MP.socket.emit('startGame',{roomCode:MP.roomCode,gameState:serialiseG()});
-});
-
-document.getElementById('btn-cancel-room').addEventListener('click',()=>{
-  // Disconnect socket and return to lobby home screen
-  if(MP.socket){MP.socket.disconnect();MP.socket=null;}
-  MP.roomCode=null;MP.myIndex=-1;MP.isHost=false;MP.players=[];MP.lobbyColour=null;
-  document.getElementById('waiting-panel').style.display='none';
-  document.getElementById('online-panel').style.display='none';
-  document.getElementById('lobby-msg').textContent='';
-  document.getElementById('lobby').style.display='flex';
-});
-
-// ── Serialise / deserialise ────────────────────────────────────────────
-function serialiseG(){
-  return{
-    board:Array.from(G.board.entries()).map(([k,t])=>[k,{n:t.n,edges:t.edges}]),
-    bag:G.bag.map(t=>({n:t.n,edges:t.edges})),
-    players:G.players.map(p=>({col:p.col,hand:p.hand.map(t=>({n:t.n,edges:t.edges}))})),
-    cur:G.cur,phase:G.phase,turnPhase:G.turnPhase,
-    scheme:activeScheme,
-  };
-}
-
-function hydrateTile(t){return{...t,curves:edgesToCurves(t.edges)};}
-
-function applyRemoteState(gs){
-  if(gs.scheme&&gs.scheme!==activeScheme){
-    activeScheme=gs.scheme;
-    const sel=document.getElementById('scheme-select');
-    if(sel)sel.value=activeScheme;
-    renderSwatches();
-  }
-  G.board=new Map(gs.board.map(([k,t])=>[k,hydrateTile(t)]));
-  G.bag=gs.bag.map(hydrateTile);
-  G.players=gs.players.map(p=>({...p,hand:p.hand.map(hydrateTile)}));
-  G.cur=gs.cur;G.phase=gs.phase;G.turnPhase=gs.turnPhase;
-  G.sel=null;G.selP=-1;G.rot=0;
-  // Recompute turn message
-  if(G.phase==='play'){
-    const isMyTurn=!MP.enabled||(MP.myIndex===G.cur);
-    if(G.turnPhase==='forced1'||G.turnPhase==='forced2'){
-      if(isMyTurn){setMsg(`Your turn — fill the forced space (orange) first`,'warn');showYourTurnBadge('Forced move!','Fill the orange space first');}  
-      else setMsg(`Waiting for P${G.cur+1} ${CN[G.players[G.cur].col]} to fill a forced space…`,'info');
-    } else {
-      if(isMyTurn){setMsg(`Your turn — make your free move`,'info');showYourTurnBadge();}
-      else setMsg(`Waiting for ${G.players[G.cur]?.name||'P'+(G.cur+1)} (${CN[G.players[G.cur].col]}) to play…`,'info');
-    }
-  }
-  updateModeLabel();updateUI();render();
-}
-
-// ── Emit state after successful moves ────────────────────────────────────
-function emitState(){
-  if(!MP.enabled||!MP.socket)return;
-  MP.socket.emit('updateGame',{roomCode:MP.roomCode,gameState:serialiseG()});
-}
-
-// ── doClick: wraps core with MP guard ────────────────────────────────────
-function doClick(px,py){
-  if(AI.enabled&&G.players[G.cur]?.isAI){
-    setMsg('Computer is thinking…','info');return;
-  }
-  if(MP.enabled&&MP.myIndex!==G.cur){
-    setMsg(`Waiting for P${G.cur+1} (${CN[G.players[G.cur].col]})…`,'info');return;
-  }
-  const sizeBefore=G.board.size;
-  _doClickCore(px,py);
-  if(MP.enabled&&G.board.size!==sizeBefore)emitState();
-}
-
-// Emit after "→ Continue" (forced space / end turn button)
-document.getElementById('bdone').addEventListener('click',()=>{
-  if(MP.enabled)setTimeout(emitState,30);
-});
-
-</script>
