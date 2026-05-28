@@ -371,7 +371,7 @@ body{font-family:system-ui,sans-serif;}
 
   </div>
   <a href="https://www.tantrix.com/english/TantrixGameRules.html" target="_blank" rel="noopener" style="font-size:15px;color:#333;text-decoration:none;margin-top:4px;font-weight:500;">📖 Official Tantrix Rules</a>
-  <span style="font-size:11px;color:#aaa;margin-top:2px;">v1.5.2</span>
+  <span style="font-size:11px;color:#aaa;margin-top:2px;">v1.5.3</span>
 </div>
 
 <div id="setup">
@@ -988,14 +988,23 @@ function buildResultsList(){
   const sc=G.players.map((p,i)=>{const bs=bestScore(p.col);return{i,col:p.col,bs};}).sort((a,b)=>b.bs.score-a.bs.score);
   const list=document.getElementById('results-list');
   list.innerHTML='';
-  sc.forEach((pl,rank)=>{
-    const isWinner=rank===0;
+  // Assign tied positions: players with equal scores share the same rank
+  const ranks=[];let pos=1;
+  for(let i=0;i<sc.length;i++){
+    if(i>0&&sc[i].bs.score===sc[i-1].bs.score){ranks.push(ranks[i-1]);}
+    else{pos=i+1;ranks.push(pos);}
+  }
+  const ordinal=n=>n===1?'1st':n===2?'2nd':n===3?'3rd':`${n}th`;
+  sc.forEach((pl,idx)=>{
+    const rank=ranks[idx];
+    const isTied=ranks.filter(r=>r===rank).length>1;
+    const isWinner=rank===1;
     const row=document.createElement('div');
     row.className='result-row'+(isWinner?' winner':'');
 
     const rankEl=document.createElement('div');
     rankEl.className='result-rank';
-    rankEl.textContent=rank===0?'1st':rank===1?'2nd':rank===2?'3rd':`${rank+1}th`;
+    rankEl.textContent=isTied?`=${ordinal(rank)}`:ordinal(rank);
 
     const dot=document.createElement('div');
     dot.className='result-dot';
@@ -1626,12 +1635,19 @@ function scoreForColour(col) {
 function bestGreedyMove(moves) {
   const col = G.players[G.cur].col;
   let best = null, bestSc = -1;
+  // Medium: greedy + tiebreak by disrupting the current leader
+  const rivals=G.players.filter((_,i)=>i!==G.cur);
+  let topRival=null,topRivalSc=-1;
+  for(const r of rivals){const s=scoreForColour(r.col);if(s>topRivalSc){topRivalSc=s;topRival=r;}}
+  const rivalCol2=topRival?.col||null;
   for (const m of moves) {
-    // Temporarily place
     G.board.set(hk(m.q, m.r), m.tile);
     const sc = scoreForColour(col);
+    // Tiebreak: prefer moves that don't help the current leader
+    const rivalSc=rivalCol2?scoreForColour(rivalCol2):0;
     G.board.delete(hk(m.q, m.r));
-    if (sc > bestSc) { bestSc = sc; best = m; }
+    const combined=sc*3-rivalSc; // weight own score heavily, small disruption bonus
+    if (combined > bestSc) { bestSc = combined; best = m; }
   }
   return best || moves[0];
 }
@@ -1655,9 +1671,15 @@ function bestLookaheadMove(moves) {
   }
   const rivalCol = leadRival ? leadRival.col : null;
 
+  // Sort moves by immediate score first so best candidates are evaluated first
+  const sortedMoves=[...moves].sort((a,b)=>{
+    G.board.set(hk(b.q,b.r),b.tile);const sb=scoreForColour(aiCol);G.board.delete(hk(b.q,b.r));
+    G.board.set(hk(a.q,a.r),a.tile);const sa=scoreForColour(aiCol);G.board.delete(hk(a.q,a.r));
+    return sb-sa;
+  });
   let best = null, bestSc = -Infinity;
 
-  for (const m of moves) {
+  for (const m of sortedMoves) {
     G.board.set(hk(m.q, m.r), m.tile);
     const aiScore = scoreForColour(aiCol);
 
@@ -1665,7 +1687,7 @@ function bestLookaheadMove(moves) {
     let rivalBest = 0;
     if (rivalCol) {
       const rivalMoves = getAiMovesForColour(rivalCol);
-      for (const hm of rivalMoves.slice(0, 15)) {
+      for (const hm of rivalMoves.slice(0, 25)) {
         G.board.set(hk(hm.q, hm.r), hm.tile);
         const rsc = scoreForColour(rivalCol);
         G.board.delete(hk(hm.q, hm.r));
